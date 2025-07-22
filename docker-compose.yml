@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: yakimoto_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: yakimoto_frontend
+    ports:
+      - "5173:5173"  # Vite default port
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm run dev -- --host 0.0.0.0  # 👈 critical for running in Docker
+    stdin_open: true
+    tty: true
+    depends_on:
+      - backend
