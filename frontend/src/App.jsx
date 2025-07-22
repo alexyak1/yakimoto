@@ -2,12 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { ProductList } from './components/ProductList';
 import { CartPage } from './components/CartPage';
+// import { ProductDetailPage } from './components/ProductDetailPage';
+import ProductDetailPage from './components/ProductDetailPage';
+
 import logo from './assets/logo.png';
 import AdminPage from './components/AdminPage';
 import axios from 'axios';
 
+const CART_KEY = 'yakimoto_cart';
+
 function App() {
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    // Load from localStorage on first render
+    const storedCart = localStorage.getItem(CART_KEY);
+    return storedCart ? JSON.parse(storedCart) : [];
+  });
+
+  // Save to localStorage when cart changes
+  useEffect(() => {
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  }, [cart]);
+
   const [token, setToken] = useState(localStorage.getItem("token") || "");
 
   const addToCart = (product) => {
@@ -16,6 +31,12 @@ function App() {
 
   const removeFromCart = (indexToRemove) => {
     setCart((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const updateQuantity = (index, newQty) => {
+    const updated = [...cart];
+    updated[index].quantity = parseInt(newQty);
+    setCart(updated);
   };
 
   const login = async (password) => {
@@ -38,7 +59,9 @@ function App() {
   return (
     <Router>
       <header className="bg-white shadow p-4 flex justify-between items-center">
-        <img src={logo} alt="Yakimoto Shop" className="h-10" />
+        <Link to="/">
+          <img src={logo} alt="Yakimoto Shop" className="h-10" />
+        </Link>
         <nav className="space-x-4">
           <Link to="/">Produkter</Link>
           <Link to="/cart">🛒 Kundvagn ({cart.length})</Link>
@@ -48,8 +71,9 @@ function App() {
 
       <Routes>
         <Route path="/" element={<ProductList onAddToCart={addToCart} />} />
-        <Route path="/cart" element={<CartPage cart={cart} removeFromCart={removeFromCart} />} />
+        <Route path="/cart" element={<CartPage cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />} />
         <Route path="/admin" element={<AdminPage token={token} login={login} />} />
+        <Route path="/products/:id" element={<ProductDetailPage onAddToCart={addToCart} />} />
       </Routes>
     </Router>
   );

@@ -5,11 +5,11 @@ function AdminPage({ token, login }) {
     const [products, setProducts] = useState([]);
     const [name, setName] = useState("");
     const [price, setPrice] = useState(0);
-    const [quantity, setQuantity] = useState(0);
+    const [sizes, setSizes] = useState({ S: 0, M: 0, L: 0 });
     const [image, setImage] = useState(null);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
-    const [editForm, setEditForm] = useState({ name: "", price: "", quantity: 0 });
+    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: { S: 0, M: 0, L: 0 } });
 
     useEffect(() => {
         fetchProducts();
@@ -17,14 +17,18 @@ function AdminPage({ token, login }) {
 
     const fetchProducts = async () => {
         const res = await axios.get("http://localhost:8000/products");
-        setProducts(res.data);
+        const parsed = res.data.map((p) => ({
+            ...p,
+            sizes: JSON.parse(p.sizes || '{}'),
+        }));
+        setProducts(parsed);
     };
 
     const handleCreate = async () => {
         const formData = new FormData();
         formData.append("name", name);
         formData.append("price", price);
-        formData.append("quantity", parseInt(quantity || "0", 10));
+        formData.append("sizes", JSON.stringify(sizes));
         formData.append("image", image);
 
         await axios.post("http://localhost:8000/products", formData, {
@@ -33,7 +37,7 @@ function AdminPage({ token, login }) {
 
         setName("");
         setPrice("");
-        setQuantity("");
+        setSizes({ S: 0, M: 0, L: 0 });
         setImage(null);
         fetchProducts();
     };
@@ -50,20 +54,24 @@ function AdminPage({ token, login }) {
         setEditForm({
             name: product.name,
             price: product.price,
-            quantity: product.quantity,
+            sizes: product.sizes || { S: 0, M: 0, L: 0 },
         });
     };
 
     const handleEditChange = (e) => {
         const { name, value } = e.target;
-        setEditForm((prev) => ({ ...prev, [name]: value }));
+        if (["S", "M", "L"].includes(name)) {
+            setEditForm((prev) => ({ ...prev, sizes: { ...prev.sizes, [name]: parseInt(value) } }));
+        } else {
+            setEditForm((prev) => ({ ...prev, [name]: value }));
+        }
     };
 
     const submitEdit = async (id) => {
         const formData = new FormData();
         formData.append("name", editForm.name);
         formData.append("price", editForm.price);
-        formData.append("quantity", parseInt(editForm.quantity || "0", 10));
+        formData.append("sizes", JSON.stringify(editForm.sizes));
 
         await axios.put(`http://localhost:8000/products/${id}`, formData, {
             headers: { Authorization: `Bearer ${token}` },
@@ -100,6 +108,7 @@ function AdminPage({ token, login }) {
 
             <div className="mb-6">
                 <h3 className="font-semibold mb-2">Lägg till ny produkt</h3>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Namn</label>
                 <input
                     type="text"
                     placeholder="Namn"
@@ -107,6 +116,7 @@ function AdminPage({ token, login }) {
                     onChange={(e) => setName(e.target.value)}
                     className="border p-1 mr-2"
                 />
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Pris</label>
                 <input
                     type="number"
                     placeholder="Pris"
@@ -114,19 +124,27 @@ function AdminPage({ token, login }) {
                     onChange={(e) => setPrice(e.target.value)}
                     className="border p-1 mr-2"
                 />
-                <input
-                    type="number"
-                    placeholder="Antal i lager"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="border p-1 mr-2"
-                />
-                <input
-                    type="file"
-                    onChange={(e) => setImage(e.target.files[0])}
-                    className="border p-1 mr-2"
-                />
-                <button onClick={handleCreate} className="bg-green-600 text-white px-3 py-1">
+                {Object.entries(sizes).map(([size, value]) => (
+                    <div key={size} className="inline-block mr-2">
+                        <label className="block text-sm font-medium text-gray-700">Antal {size}</label>
+                        <input
+                            name={size}
+                            type="number"
+                            value={value}
+                            onChange={(e) => setSizes((prev) => ({ ...prev, [size]: parseInt(e.target.value) }))}
+                            className="border p-1"
+                        />
+                    </div>
+                ))}
+                <div className="mt-2">
+                    <label className="block text-sm font-medium text-gray-700">Bild</label>
+                    <input
+                        type="file"
+                        onChange={(e) => setImage(e.target.files[0])}
+                        className="border p-1 mr-2"
+                    />
+                </div>
+                <button onClick={handleCreate} className="bg-green-600 text-white px-3 py-1 mt-2">
                     Skapa produkt
                 </button>
             </div>
@@ -149,18 +167,22 @@ function AdminPage({ token, login }) {
                                     onChange={handleEditChange}
                                     className="border p-1 mr-2"
                                 />
-                                <input
-                                    name="quantity"
-                                    value={editForm.quantity}
-                                    onChange={handleEditChange}
-                                    className="border p-1 mr-2"
-                                />
+                                {Object.entries(editForm.sizes).map(([size, value]) => (
+                                    <input
+                                        key={size}
+                                        name={size}
+                                        value={value}
+                                        onChange={handleEditChange}
+                                        className="border p-1 mr-2"
+                                    />
+                                ))}
                                 <button onClick={() => submitEdit(product.id)} className="bg-blue-600 text-white px-2 py-1 mr-1">Spara</button>
                                 <button onClick={() => setEditProductId(null)} className="bg-gray-400 text-white px-2 py-1">Avbryt</button>
                             </div>
                         ) : (
                             <div>
-                                <p>{product.name} – {product.price} SEK – I lager: {product.quantity}</p>
+                                <p>{product.name} – {product.price} SEK</p>
+                                <p className="text-sm text-gray-600">Lager: {JSON.stringify(product.sizes)}</p>
                                 <button onClick={() => startEdit(product)} className="bg-yellow-500 text-white px-2 py-1 mr-1">Redigera</button>
                                 <button onClick={() => deleteProduct(product.id)} className="bg-red-600 text-white px-2 py-1">Ta bort</button>
                             </div>
