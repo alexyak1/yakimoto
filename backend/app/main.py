@@ -3,6 +3,7 @@ import time
 import uuid
 import sqlite3
 import jwt
+import shutil
 
 from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
@@ -39,12 +40,14 @@ def get_db():
     return conn
 
 conn = get_db()
+conn.execute("DROP TABLE IF EXISTS products")
 conn.execute("""
     CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         price INTEGER,
-        image TEXT
+        image TEXT,
+        quantity INTEGER
     )
 """)
 conn.commit()
@@ -54,6 +57,7 @@ class Product(BaseModel):
     name: str
     price: int
     image: str
+    quantity: int
 
 def verify_token(authorization: str = Header(...)):
     try:
@@ -73,30 +77,27 @@ def read_products():
     return [dict(row) for row in rows]
 
 @app.post("/products")
-async def create_product(
+def create_product(
     name: str = Form(...),
     price: int = Form(...),
+    quantity: int = Form(...),
     image: UploadFile = File(...),
-    auth=Depends(verify_token)
+    token: str = Depends(verify_token)
 ):
-    filename = f"{uuid.uuid4().hex}_{image.filename}"
-    filepath = os.path.join(UPLOAD_DIR, filename)
+    filename = f"{uuid.uuid4()}_{image.filename}"
+    image_path = os.path.join(UPLOAD_DIR, filename)
 
-    with open(filepath, "wb") as f:
-        content = await image.read()
-        f.write(content)
-
-    image_url = f"/uploads/{filename}"
+    with open(image_path, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
 
     conn = get_db()
-    cursor = conn.execute(
-        "INSERT INTO products (name, price, image) VALUES (?, ?, ?)",
-        (name, price, image_url)
+    conn.execute(
+        "INSERT INTO products (name, price, quantity, image) VALUES (?, ?, ?, ?)",
+        (name, price, quantity, filename)
     )
     conn.commit()
     conn.close()
-
-    return {"id": cursor.lastrowid, "name": name, "price": price, "image": image_url}
+    return {"message": "Product created"}
 
 @app.delete("/products/{product_id}")
 def delete_product(product_id: int, auth=Depends(verify_token)):
@@ -118,3 +119,20 @@ def login(password: str = Form(...)):
 
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return {"token": token}
+
+@app.put("/products/{product_id}")
+async def update_product(
+    product_id: int,
+    name: str = Form(...),
+    price: int = Form(...),
+    quantity: int = Form(...),
+    token: str = Depends(verify_token)
+):
+    conn = get_db()
+    conn.execute(
+        "UPDATE products SET name = ?, price = ?, quantity = ? WHERE id = ?",
+        (name, price, quantity, product_id)
+    )
+    conn.commit()
+    conn.close()
+    return {"message": "Product updated"}
