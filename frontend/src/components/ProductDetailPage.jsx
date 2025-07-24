@@ -3,6 +3,9 @@ import { useParams } from 'react-router-dom';
 import api from '../api';
 import { Toaster, toast } from "react-hot-toast";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
+
 export default function ProductDetailPage({ onAddToCart }) {
     const { id } = useParams();
 
@@ -51,7 +54,7 @@ export default function ProductDetailPage({ onAddToCart }) {
             <div className="flex flex-col items-center gap-4">
                 <div className="w-full aspect-square overflow-hidden rounded-lg border">
                     <img
-                        src={`http://localhost:8000/uploads/${images[selectedImageIndex]}`}
+                        src={`${API_URL}/uploads/${images[selectedImageIndex]}`}
                         className="w-full h-full object-cover transition duration-300 ease-in-out"
                         alt={`Produktbild ${selectedImageIndex + 1}`}
                     />
@@ -60,7 +63,7 @@ export default function ProductDetailPage({ onAddToCart }) {
                     {images.map((img, idx) => (
                         <img
                             key={idx}
-                            src={`http://localhost:8000/uploads/${img}`}
+                            src={`${API_URL}/uploads/${img}`}
                             onClick={() => setSelectedImageIndex(idx)}
                             className={`w-20 h-20 object-cover rounded cursor-pointer border-2 ${selectedImageIndex === idx ? 'border-black' : 'border-transparent'
                                 }`}

@@ -11,6 +11,7 @@ import AdminPage from './components/AdminPage';
 import axios from 'axios';
 
 const CART_KEY = 'yakimoto_cart';
+const API_URL = import.meta.env.VITE_API_URL;
 
 function App() {
   const [cart, setCart] = useState(() => {
@@ -44,7 +45,7 @@ function App() {
     try {
       const formData = new FormData();
       formData.append("password", password);
-      const res = await axios.post("http://192.168.0.100:8000/login", formData);
+      const res = await axios.post(`${API_URL}/login`, formData);
       setToken(res.data.token);
       localStorage.setItem("token", res.data.token);
     } catch (err) {
@@ -59,7 +60,14 @@ function App() {
 
   return (
     <>
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            marginTop: '4rem',
+          },
+        }}
+      />
       <Router>
         <header className="bg-white shadow p-4 flex justify-between items-center">
           <Link to="/">

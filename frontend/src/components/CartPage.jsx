@@ -1,5 +1,7 @@
 import React from 'react';
-import { Trash2 } from 'lucide-react'; // install lucide-react or use an icon lib you prefer
+import { Trash2 } from 'lucide-react';
+const API_URL = import.meta.env.VITE_API_URL;
+
 
 export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -19,7 +21,7 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
             >
               {/* Product Image */}
               <img
-                src={`http://192.168.0.100:8000/uploads/${item.images?.[0]}`}
+                src={`${API_URL}/uploads/${item.images?.[0]}`}
                 alt={item.name}
                 className="w-28 h-28 object-cover rounded"
               />

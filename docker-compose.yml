@@ -24,8 +24,10 @@ services:
       - ./frontend:/app
       - /app/node_modules
     working_dir: /app
-    command: npm run dev -- --host 0.0.0.0  # 👈 critical for running in Docker
+    command: npm run dev -- --host 0.0.0.0 
     stdin_open: true
     tty: true
     depends_on:
       - backend
+    env_file:
+      - .env

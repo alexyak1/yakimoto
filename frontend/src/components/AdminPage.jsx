@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function AdminPage({ token, login }) {
     const [products, setProducts] = useState([]);
     const [name, setName] = useState("");
@@ -17,12 +19,17 @@ function AdminPage({ token, login }) {
     }, []);
 
     const fetchProducts = async () => {
-        const res = await axios.get("http://192.168.0.100:8000/products");
-        const parsed = res.data.map((p) => ({
-            ...p,
-            sizes: JSON.parse(p.sizes || '{}'),
-        }));
-        setProducts(parsed);
+        try {
+            const res = await axios.get(`${API_URL}/products`);
+
+            const parsed = res.data.map((p) => ({
+                ...p,
+                sizes: JSON.parse(p.sizes || '{}'),
+            }));
+            setProducts(parsed);
+        } catch (err) {
+            console.error("Failed to fetch products", err);
+        }
     };
 
     const handleCreate = async () => {
@@ -40,7 +47,7 @@ function AdminPage({ token, login }) {
             formData.append("images", file);
         }
 
-        await axios.post("http://192.168.0.100:8000/products", formData, {
+        await axios.post(`${API_URL}/products`, formData, {
             headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -54,7 +61,7 @@ function AdminPage({ token, login }) {
 
 
     const deleteProduct = async (id) => {
-        await axios.delete(`http://192.168.0.100:8000/products/${id}`, {
+        await axios.delete(`${API_URL}/products/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
         });
         fetchProducts();
@@ -107,15 +114,11 @@ function AdminPage({ token, login }) {
             formData.append("images", file);
         }
 
-        await axios.put(
-            `http://192.168.0.100:8000/products/${id}`,
-            formData,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`, // ✅ This is required
-                },
-            }
-        );
+        await axios.put(`${API_URL}/products/${id}`, formData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
 
         setEditProductId(null);
         setEditImageFiles([]);
@@ -180,6 +183,9 @@ function AdminPage({ token, login }) {
                 </button>
             </div>
         );
+    }
+    if (!Array.isArray(products)) {
+        return <div className="p-4 text-red-500">Produkter kunde inte laddas.</div>;
     }
 
     return (
@@ -310,7 +316,7 @@ function AdminPage({ token, login }) {
                                         {product.images.map((img, idx) => (
                                             <img
                                                 key={idx}
-                                                src={`http://192.168.0.100:8000/uploads/${img}`}
+                                                src={`${API_URL}/uploads/${img}`}
                                                 alt="Produktbild"
                                                 className="w-20 h-20 object-cover border"
                                             />
