@@ -5,11 +5,11 @@ function AdminPage({ token, login }) {
     const [products, setProducts] = useState([]);
     const [name, setName] = useState("");
     const [price, setPrice] = useState(0);
-    const [sizes, setSizes] = useState({ S: 0, M: 0, L: 0 });
+    const [sizes, setSizes] = useState([{ size: '', quantity: 0 }]);
     const [image, setImage] = useState(null);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
-    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: { S: 0, M: 0, L: 0 } });
+    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }] });
 
     useEffect(() => {
         fetchProducts();
@@ -28,7 +28,14 @@ function AdminPage({ token, login }) {
         const formData = new FormData();
         formData.append("name", name);
         formData.append("price", price);
-        formData.append("sizes", JSON.stringify(sizes));
+
+        formData.append("sizes", JSON.stringify(
+            sizes.reduce((acc, cur) => {
+                if (cur.size.trim()) acc[cur.size] = cur.quantity;
+                return acc;
+            }, {})
+        ));
+
         formData.append("image", image);
 
         await axios.post("http://192.168.0.100:8000/products", formData, {
@@ -37,7 +44,7 @@ function AdminPage({ token, login }) {
 
         setName("");
         setPrice("");
-        setSizes({ S: 0, M: 0, L: 0 });
+        setSizes([{ size: '', quantity: 0 }]);
         setImage(null);
         fetchProducts();
     };
@@ -51,34 +58,99 @@ function AdminPage({ token, login }) {
 
     const startEdit = (product) => {
         setEditProductId(product.id);
+
+        const parsedSizes = Object.entries(product.sizes || {}).map(
+            ([size, quantity]) => ({ size, quantity })
+        );
+
         setEditForm({
             name: product.name,
             price: product.price,
-            sizes: product.sizes || { S: 0, M: 0, L: 0 },
+            sizes: parsedSizes,
         });
     };
 
     const handleEditChange = (e) => {
         const { name, value } = e.target;
-        if (["S", "M", "L"].includes(name)) {
-            setEditForm((prev) => ({ ...prev, sizes: { ...prev.sizes, [name]: parseInt(value) } }));
+
+        if (name in editForm.sizes) {
+            setEditForm((prev) => ({
+                ...prev,
+                sizes: {
+                    ...prev.sizes,
+                    [name]: parseInt(value, 10)
+                }
+            }));
         } else {
-            setEditForm((prev) => ({ ...prev, [name]: value }));
+            setEditForm((prev) => ({
+                ...prev,
+                [name]: value
+            }));
         }
     };
 
     const submitEdit = async (id) => {
+        const sizesObj = editForm.sizes.reduce((acc, cur) => {
+            if (cur.size.trim()) acc[cur.size] = cur.quantity;
+            return acc;
+        }, {});
+
         const formData = new FormData();
         formData.append("name", editForm.name);
         formData.append("price", editForm.price);
-        formData.append("sizes", JSON.stringify(editForm.sizes));
+        formData.append("sizes", JSON.stringify(sizesObj));
 
-        await axios.put(`http://192.168.0.100:8000/products/${id}`, formData, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
+        await axios.put(
+            `http://192.168.0.100:8000/products/${id}`,
+            formData,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`, // ✅ This is required
+                },
+            }
+        );
 
         setEditProductId(null);
         fetchProducts();
+    };
+
+    const updateEditSize = (index, field, value) => {
+        setEditForm((prev) => {
+            const newSizes = [...prev.sizes];
+            newSizes[index] = { ...newSizes[index], [field]: field === "quantity" ? parseInt(value) : value };
+            return { ...prev, sizes: newSizes };
+        });
+    };
+
+    const addEditSize = () => {
+        setEditForm((prev) => ({
+            ...prev,
+            sizes: [...prev.sizes, { size: "", quantity: 0 }],
+        }));
+    };
+
+    const removeEditSize = (index) => {
+        setEditForm((prev) => {
+            const newSizes = [...prev.sizes];
+            newSizes.splice(index, 1);
+            return { ...prev, sizes: newSizes };
+        });
+    };
+
+    const updateSize = (index, field, value) => {
+        const updated = [...sizes];
+        updated[index][field] = field === 'quantity' ? parseInt(value, 10) : value;
+        setSizes(updated);
+    };
+
+    const removeSize = (index) => {
+        const updated = [...sizes];
+        updated.splice(index, 1);
+        setSizes(updated);
+    };
+
+    const addSize = () => {
+        setSizes([...sizes, { size: '', quantity: 0 }]);
     };
 
     if (!token) {
@@ -106,8 +178,10 @@ function AdminPage({ token, login }) {
         <div className="p-4">
             <h2 className="text-lg font-semibold mb-4">Admin Panel</h2>
 
+            {/* Add New Product */}
             <div className="mb-6">
                 <h3 className="font-semibold mb-2">Lägg till ny produkt</h3>
+
                 <label className="block text-sm font-medium text-gray-700 mb-1">Namn</label>
                 <input
                     type="text"
@@ -116,6 +190,7 @@ function AdminPage({ token, login }) {
                     onChange={(e) => setName(e.target.value)}
                     className="border p-1 mr-2"
                 />
+
                 <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Pris</label>
                 <input
                     type="number"
@@ -124,18 +199,43 @@ function AdminPage({ token, login }) {
                     onChange={(e) => setPrice(e.target.value)}
                     className="border p-1 mr-2"
                 />
-                {Object.entries(sizes).map(([size, value]) => (
-                    <div key={size} className="inline-block mr-2">
-                        <label className="block text-sm font-medium text-gray-700">Antal {size}</label>
-                        <input
-                            name={size}
-                            type="number"
-                            value={value}
-                            onChange={(e) => setSizes((prev) => ({ ...prev, [size]: parseInt(e.target.value) }))}
-                            className="border p-1"
-                        />
-                    </div>
-                ))}
+
+                <div className="space-y-2 mt-2">
+                    {sizes.map((entry, index) => (
+                        <div key={index} className="flex gap-2 items-center">
+                            <input
+                                type="text"
+                                placeholder="Storlek (t.ex. 170)"
+                                value={entry.size}
+                                onChange={(e) => updateSize(index, 'size', e.target.value)}
+                                className="border p-2 rounded w-24"
+                            />
+                            <input
+                                type="number"
+                                placeholder="Antal"
+                                value={entry.quantity}
+                                min={0}
+                                onChange={(e) => updateSize(index, 'quantity', e.target.value)}
+                                className="border p-2 rounded w-24"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => removeSize(index)}
+                                className="text-red-600 hover:underline"
+                            >
+                                Ta bort
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={addSize}
+                        className="text-sm text-blue-600 hover:underline"
+                    >
+                        + Lägg till storlek
+                    </button>
+                </div>
+
                 <div className="mt-2">
                     <label className="block text-sm font-medium text-gray-700">Bild</label>
                     <input
@@ -149,6 +249,7 @@ function AdminPage({ token, login }) {
                 </button>
             </div>
 
+            {/* Existing Products */}
             <div>
                 <h3 className="font-semibold mb-2">Befintliga produkter</h3>
                 {products.map((product) => (
@@ -158,26 +259,47 @@ function AdminPage({ token, login }) {
                                 <input
                                     name="name"
                                     value={editForm.name}
-                                    onChange={handleEditChange}
+                                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
                                     className="border p-1 mr-2"
                                 />
                                 <input
                                     name="price"
                                     value={editForm.price}
-                                    onChange={handleEditChange}
+                                    onChange={(e) => setEditForm((prev) => ({ ...prev, price: e.target.value }))}
                                     className="border p-1 mr-2"
                                 />
-                                {Object.entries(editForm.sizes).map(([size, value]) => (
-                                    <input
-                                        key={size}
-                                        name={size}
-                                        value={value}
-                                        onChange={handleEditChange}
-                                        className="border p-1 mr-2"
-                                    />
+                                {editForm.sizes.map((entry, index) => (
+                                    <div key={index} className="flex gap-2 items-center mt-1">
+                                        <input
+                                            type="text"
+                                            value={entry.size}
+                                            onChange={(e) => updateEditSize(index, 'size', e.target.value)}
+                                            className="border p-1 w-20"
+                                        />
+                                        <input
+                                            type="number"
+                                            value={entry.quantity}
+                                            onChange={(e) => updateEditSize(index, 'quantity', e.target.value)}
+                                            className="border p-1 w-20"
+                                        />
+                                        <button
+                                            onClick={() => removeEditSize(index)}
+                                            className="text-red-600 hover:underline"
+                                        >
+                                            Ta bort
+                                        </button>
+                                    </div>
                                 ))}
-                                <button onClick={() => submitEdit(product.id)} className="bg-blue-600 text-white px-2 py-1 mr-1">Spara</button>
-                                <button onClick={() => setEditProductId(null)} className="bg-gray-400 text-white px-2 py-1">Avbryt</button>
+                                <button
+                                    onClick={addEditSize}
+                                    className="text-sm text-blue-600 hover:underline mt-1"
+                                >
+                                    + Lägg till storlek
+                                </button>
+                                <div className="mt-2">
+                                    <button onClick={() => submitEdit(product.id)} className="bg-blue-600 text-white px-2 py-1 mr-1">Spara</button>
+                                    <button onClick={() => setEditProductId(null)} className="bg-gray-400 text-white px-2 py-1">Avbryt</button>
+                                </div>
                             </div>
                         ) : (
                             <div>
@@ -193,5 +315,4 @@ function AdminPage({ token, login }) {
         </div>
     );
 }
-
 export default AdminPage;

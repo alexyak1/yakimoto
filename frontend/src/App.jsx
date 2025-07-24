@@ -43,7 +43,7 @@ function App() {
     try {
       const formData = new FormData();
       formData.append("password", password);
-      const res = await axios.post("http://localhost:8000/login", formData);
+      const res = await axios.post("http://192.168.0.100:8000/login", formData);
       setToken(res.data.token);
       localStorage.setItem("token", res.data.token);
     } catch (err) {

@@ -29,11 +29,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 # CORS config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-    "http://localhost:5173",
-    "http://192.168.0.100:5173",  # 👈 IP of the laptop
-    ],
-
+    allow_origins=["http://localhost:5173", "http://192.168.0.100:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,15 +71,17 @@ def setup_database():
 
 setup_database()
 
-# Auth
 def verify_token(authorization: str = Header(...)):
+    print("AUTH HEADER:", authorization)
     try:
         scheme, token = authorization.split()
         if scheme.lower() != "bearer":
             raise ValueError("Invalid auth scheme")
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        print("Payload OK:", payload)
         return payload
-    except Exception:
+    except Exception as e:
+        print("Token error:", e)
         raise HTTPException(status_code=403, detail="Invalid or expired token")
 
 # Data models
@@ -140,7 +138,7 @@ def update_product(
     name: str = Form(...),
     price: float = Form(...),
     sizes: str = Form(...),
-    token: str = Depends(verify_token),
+    auth=Depends(verify_token),
 ):
     conn = get_db()
     conn.execute(
