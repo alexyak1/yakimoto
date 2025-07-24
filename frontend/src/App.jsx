@@ -4,6 +4,7 @@ import { ProductList } from './components/ProductList';
 import { CartPage } from './components/CartPage';
 // import { ProductDetailPage } from './components/ProductDetailPage';
 import ProductDetailPage from './components/ProductDetailPage';
+import { Toaster } from 'react-hot-toast';
 
 import logo from './assets/logo.png';
 import AdminPage from './components/AdminPage';
@@ -57,25 +58,28 @@ function App() {
   };
 
   return (
-    <Router>
-      <header className="bg-white shadow p-4 flex justify-between items-center">
-        <Link to="/">
-          <img src={logo} alt="Yakimoto Shop" className="h-10" />
-        </Link>
-        <nav className="space-x-4">
-          <Link to="/">Produkter</Link>
-          <Link to="/cart">🛒 Kundvagn ({cart.length})</Link>
-          {token && <button onClick={logout}>Logout</button>}
-        </nav>
-      </header>
+    <>
+      <Toaster position="top-right" />
+      <Router>
+        <header className="bg-white shadow p-4 flex justify-between items-center">
+          <Link to="/">
+            <img src={logo} alt="Yakimoto Shop" className="h-10" />
+          </Link>
+          <nav className="space-x-4">
+            <Link to="/">Produkter</Link>
+            <Link to="/cart">🛒 Kundvagn ({cart.length})</Link>
+            {token && <button onClick={logout}>Logout</button>}
+          </nav>
+        </header>
 
-      <Routes>
-        <Route path="/" element={<ProductList onAddToCart={addToCart} />} />
-        <Route path="/cart" element={<CartPage cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />} />
-        <Route path="/admin" element={<AdminPage token={token} login={login} />} />
-        <Route path="/products/:id" element={<ProductDetailPage onAddToCart={addToCart} />} />
-      </Routes>
-    </Router>
+        <Routes>
+          <Route path="/" element={<ProductList onAddToCart={addToCart} />} />
+          <Route path="/cart" element={<CartPage cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />} />
+          <Route path="/admin" element={<AdminPage token={token} login={login} />} />
+          <Route path="/products/:id" element={<ProductDetailPage onAddToCart={addToCart} />} />
+        </Routes>
+      </Router>
+    </>
   );
 }
 

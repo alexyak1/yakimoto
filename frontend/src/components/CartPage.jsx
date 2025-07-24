@@ -19,7 +19,7 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
             >
               {/* Product Image */}
               <img
-                src={`http://192.168.0.100:8000/uploads/${item.image}`}
+                src={`http://192.168.0.100:8000/uploads/${item.images?.[0]}`}
                 alt={item.name}
                 className="w-28 h-28 object-cover rounded"
               />

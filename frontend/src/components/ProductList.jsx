@@ -29,11 +29,13 @@ export const ProductList = () => {
           className="group relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition"
         >
           <div className="w-full h-96 overflow-hidden">
-            <img
-              src={`http://192.168.0.100:8000/uploads/${product.image}`}
-              alt={product.name}
-              className="w-full h-full object-cover transition-transform group-hover:scale-105 "
-            />
+            {product.images?.length > 0 && (
+              <img
+                src={`http://localhost:8000/uploads/${product.images[0]}`}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            )}
           </div>
 
           <div className="p-4">

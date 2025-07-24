@@ -6,10 +6,11 @@ function AdminPage({ token, login }) {
     const [name, setName] = useState("");
     const [price, setPrice] = useState(0);
     const [sizes, setSizes] = useState([{ size: '', quantity: 0 }]);
-    const [image, setImage] = useState(null);
+    const [imageFiles, setImageFiles] = useState([]);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
     const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }] });
+    const [editImageFiles, setEditImageFiles] = useState([]);
 
     useEffect(() => {
         fetchProducts();
@@ -35,19 +36,22 @@ function AdminPage({ token, login }) {
                 return acc;
             }, {})
         ));
-
-        formData.append("image", image);
+        for (let file of imageFiles) {
+            formData.append("images", file);
+        }
 
         await axios.post("http://192.168.0.100:8000/products", formData, {
             headers: { Authorization: `Bearer ${token}` },
         });
 
+        // reset form
         setName("");
         setPrice("");
         setSizes([{ size: '', quantity: 0 }]);
-        setImage(null);
+        setImageFiles([]);
         fetchProducts();
     };
+
 
     const deleteProduct = async (id) => {
         await axios.delete(`http://192.168.0.100:8000/products/${id}`, {
@@ -99,6 +103,9 @@ function AdminPage({ token, login }) {
         formData.append("name", editForm.name);
         formData.append("price", editForm.price);
         formData.append("sizes", JSON.stringify(sizesObj));
+        for (let file of editImageFiles) {
+            formData.append("images", file);
+        }
 
         await axios.put(
             `http://192.168.0.100:8000/products/${id}`,
@@ -111,6 +118,7 @@ function AdminPage({ token, login }) {
         );
 
         setEditProductId(null);
+        setEditImageFiles([]);
         fetchProducts();
     };
 
@@ -240,7 +248,8 @@ function AdminPage({ token, login }) {
                     <label className="block text-sm font-medium text-gray-700">Bild</label>
                     <input
                         type="file"
-                        onChange={(e) => setImage(e.target.files[0])}
+                        multiple
+                        onChange={(e) => setImageFiles(Array.from(e.target.files))}
                         className="border p-1 mr-2"
                     />
                 </div>
@@ -296,6 +305,27 @@ function AdminPage({ token, login }) {
                                 >
                                     + Lägg till storlek
                                 </button>
+                                {product.images && product.images.length > 0 && (
+                                    <div className="mt-2 flex gap-2 flex-wrap">
+                                        {product.images.map((img, idx) => (
+                                            <img
+                                                key={idx}
+                                                src={`http://192.168.0.100:8000/uploads/${img}`}
+                                                alt="Produktbild"
+                                                className="w-20 h-20 object-cover border"
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="mt-2">
+                                    <label className="block text-sm font-medium text-gray-700">Lägg till nya bilder</label>
+                                    <input
+                                        type="file"
+                                        multiple
+                                        onChange={(e) => setEditImageFiles(Array.from(e.target.files))}
+                                        className="border p-1"
+                                    />
+                                </div>
                                 <div className="mt-2">
                                     <button onClick={() => submitEdit(product.id)} className="bg-blue-600 text-white px-2 py-1 mr-1">Spara</button>
                                     <button onClick={() => setEditProductId(null)} className="bg-gray-400 text-white px-2 py-1">Avbryt</button>

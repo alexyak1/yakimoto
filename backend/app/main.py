@@ -1,3 +1,4 @@
+from typing import List
 import os
 import time
 import uuid
@@ -47,6 +48,7 @@ def setup_database():
     # ⚠️ Remove these in production
     # conn.execute("DROP TABLE IF EXISTS products")
     # conn.execute("DROP TABLE IF EXISTS product_sizes")
+    # conn.execute("DROP TABLE IF EXISTS product_images")
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS products (
@@ -55,6 +57,14 @@ def setup_database():
             price INTEGER,
             image TEXT,
             sizes TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS product_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER,
+            filename TEXT,
+            FOREIGN KEY(product_id) REFERENCES products(id)
         )
     """)
     conn.execute("""
@@ -91,46 +101,86 @@ class Product(BaseModel):
     image: str
     quantity: int
 
-# Routes
 @app.get("/products")
 def read_products():
     conn = get_db()
-    rows = conn.execute("SELECT * FROM products").fetchall()
+    cursor = conn.cursor()
+
+    # Fetch products
+    cursor.execute("SELECT * FROM products")
+    products = cursor.fetchall()
+
+    result = []
+    for product in products:
+        product_dict = dict(product)
+
+        # Fetch images for each product
+        cursor.execute("SELECT filename FROM product_images WHERE product_id = ?", (product["id"],))
+        image_rows = cursor.fetchall()
+        product_dict["images"] = [img["filename"] for img in image_rows]
+
+        result.append(product_dict)
+
     conn.close()
-    return [dict(row) for row in rows]
+    return result
 
 @app.get("/products/{product_id}")
 def get_product(product_id: int):
     conn = get_db()
-    row = conn.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+    cursor = conn.cursor()
+
+    # Fetch product
+    product = cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+    if not product:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    # Fetch related images
+    images = cursor.execute(
+        "SELECT filename FROM product_images WHERE product_id = ?", (product_id,)
+    ).fetchall()
     conn.close()
-    if row:
-        return dict(row)
-    raise HTTPException(status_code=404, detail="Product not found")
+
+    product_dict = dict(product)
+    product_dict["images"] = [row["filename"] for row in images]
+
+    return product_dict
 
 @app.post("/products")
 def create_product(
     name: str = Form(...),
     price: int = Form(...),
     sizes: str = Form(...),
-    image: UploadFile = File(...),
+    images: List[UploadFile] = File(...),
     auth=Depends(verify_token),
 ):
-    filename = f"{uuid.uuid4()}_{image.filename}"
-    image_path = os.path.join(UPLOAD_DIR, filename)
-
-    with open(image_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
-
     conn = get_db()
-    conn.execute(
-        "INSERT INTO products (name, price, image, sizes) VALUES (?, ?, ?, ?)",
-        (name, price, filename, sizes)
+    cursor = conn.cursor()
+
+    # Insert product (without image column)
+    cursor.execute(
+        "INSERT INTO products (name, price, sizes) VALUES (?, ?, ?)",
+        (name, price, sizes)
     )
+    product_id = cursor.lastrowid
+
+    # Save images
+    for image in images:
+        filename = f"{uuid.uuid4()}_{image.filename}"
+        image_path = os.path.join(UPLOAD_DIR, filename)
+        with open(image_path, "wb") as buffer:
+            buffer.write(image.file.read())
+
+        # Link image to product
+        cursor.execute(
+            "INSERT INTO product_images (product_id, filename) VALUES (?, ?)",
+            (product_id, filename)
+        )
+
     conn.commit()
     conn.close()
 
-    return {"message": "Product created"}
+    return {"message": "Product created", "id": product_id}
 
 @app.put("/products/{product_id}")
 def update_product(
