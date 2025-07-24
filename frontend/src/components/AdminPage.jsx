@@ -16,7 +16,7 @@ function AdminPage({ token, login }) {
     }, []);
 
     const fetchProducts = async () => {
-        const res = await axios.get("http://localhost:8000/products");
+        const res = await axios.get("http://192.168.0.100:8000/products");
         const parsed = res.data.map((p) => ({
             ...p,
             sizes: JSON.parse(p.sizes || '{}'),
@@ -31,7 +31,7 @@ function AdminPage({ token, login }) {
         formData.append("sizes", JSON.stringify(sizes));
         formData.append("image", image);
 
-        await axios.post("http://localhost:8000/products", formData, {
+        await axios.post("http://192.168.0.100:8000/products", formData, {
             headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -43,7 +43,7 @@ function AdminPage({ token, login }) {
     };
 
     const deleteProduct = async (id) => {
-        await axios.delete(`http://localhost:8000/products/${id}`, {
+        await axios.delete(`http://192.168.0.100:8000/products/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
         });
         fetchProducts();
@@ -73,7 +73,7 @@ function AdminPage({ token, login }) {
         formData.append("price", editForm.price);
         formData.append("sizes", JSON.stringify(editForm.sizes));
 
-        await axios.put(`http://localhost:8000/products/${id}`, formData, {
+        await axios.put(`http://192.168.0.100:8000/products/${id}`, formData, {
             headers: { Authorization: `Bearer ${token}` },
         });
 

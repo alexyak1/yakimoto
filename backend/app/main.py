@@ -29,7 +29,11 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 # CORS config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+    "http://localhost:5173",
+    "http://192.168.0.100:5173",  # 👈 IP of the laptop
+    ],
+
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

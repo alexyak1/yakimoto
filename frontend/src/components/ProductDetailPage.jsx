@@ -28,7 +28,7 @@ export default function ProductDetailPage({ onAddToCart }) {
             {/* Left: Image */}
             <div className="rounded-lg overflow-hidden shadow">
                 <img
-                    src={`http://localhost:8000/uploads/${product.image}`}
+                    src={`http://192.168.0.100:8000/uploads/${product.image}`}
                     alt={product.name}
                     className="w-full h-full object-cover"
                 />
@@ -48,8 +48,8 @@ export default function ProductDetailPage({ onAddToCart }) {
                                 disabled={qty <= 0}
                                 onClick={() => setSelectedSize(size)}
                                 className={`px-4 py-2 border rounded ${selectedSize === size
-                                        ? 'border-black bg-black text-white'
-                                        : 'border-gray-300'
+                                    ? 'border-black bg-black text-white'
+                                    : 'border-gray-300'
                                     } ${qty === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 {size}
