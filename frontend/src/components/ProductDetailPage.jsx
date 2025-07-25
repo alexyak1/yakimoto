@@ -36,13 +36,11 @@ export default function ProductDetailPage({ onAddToCart }) {
 
         setSizeError(false);
 
-        const available = sizes.find(([s]) => s === selectedSize)?.[1] || 0;
-
         const added = onAddToCart({
             ...product,
             selectedSize,
             quantity: 1,
-            available,
+            available: sizes.find(([s]) => s === selectedSize)?.[1] || 0,
         });
 
         if (added) {

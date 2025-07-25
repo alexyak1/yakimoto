@@ -36,10 +36,17 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
                 <div className="mt-3 flex items-center gap-3">
                   <select
                     value={item.quantity}
-                    onChange={(e) => updateQuantity(index, e.target.value)}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (val > item.available) {
+                        alert(`Endast ${item.available} i lager för storlek ${item.selectedSize}`);
+                        return;
+                      }
+                      updateQuantity(index, val);
+                    }}
                     className="border border-gray-300 rounded px-2 py-1 text-sm"
                   >
-                    {[...Array(10).keys()].map(i => (
+                    {[...Array(item.available || 1).keys()].map(i => (
                       <option key={i + 1} value={i + 1}>
                         {i + 1}
                       </option>
