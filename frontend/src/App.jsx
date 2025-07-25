@@ -28,7 +28,14 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
 
   const addToCart = (product) => {
+    const exists = cart.find(
+      item => item.id === product.id && item.selectedSize === product.selectedSize
+    );
+
+    if (exists) return false;
+
     setCart((prev) => [...prev, product]);
+    return true;
   };
 
   const removeFromCart = (indexToRemove) => {

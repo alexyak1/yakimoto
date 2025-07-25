@@ -12,7 +12,6 @@ export default function ProductDetailPage({ onAddToCart }) {
     // ✅ All hooks defined unconditionally
     const [product, setProduct] = useState(null);
     const [selectedSize, setSelectedSize] = useState(null);
-    const [quantity, setQuantity] = useState(1);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [sizeError, setSizeError] = useState(false);
 
@@ -38,14 +37,23 @@ export default function ProductDetailPage({ onAddToCart }) {
         setSizeError(false);
 
         const available = sizes.find(([s]) => s === selectedSize)?.[1] || 0;
-        if (quantity > available) {
-            toast.error(`Endast ${available} st i lager för storlek ${selectedSize}`);
-            return;
-        }
 
-        onAddToCart({ ...product, selectedSize, quantity });
-        toast.success(`${product.name} (${selectedSize}) tillagd i varukorgen`);
+        const added = onAddToCart({
+            ...product,
+            selectedSize,
+            quantity: 1,
+            available,
+        });
+
+        if (added) {
+            toast.success(`${product.name} (${selectedSize}) tillagd i varukorgen`);
+        } else {
+            toast.error("Produkten med vald storlek finns redan i varukorgen. Gå till varukorgen för att ändra antal.");
+        }
     };
+
+
+
 
 
     return (
@@ -116,27 +124,11 @@ export default function ProductDetailPage({ onAddToCart }) {
                     </div>
                 </div>
 
-                <div className="mb-6">
-                    <h3 className="font-semibold mb-1">Antal</h3>
-                    <input
-                        type="number"
-                        min="1"
-                        max={selectedSize ? sizes.find(([s]) => s === selectedSize)?.[1] || 1 : 1}
-                        value={quantity}
-                        onChange={(e) => {
-                            const val = Number(e.target.value);
-                            const max = selectedSize ? sizes.find(([s]) => s === selectedSize)?.[1] || 1 : 1;
-                            setQuantity(val > max ? max : val);
-                        }}
-                        className="border px-3 py-2 w-20 rounded"
-                    />
-                </div>
-
                 <button
                     onClick={handleAddToCart}
                     className="w-full bg-black text-white py-3 rounded hover:bg-gray-800 transition"
                 >
-                    Lägg i varukorg – {product.price * quantity} kr
+                    Lägg i varukorg – {product.price} kr
                 </button>
 
                 {selectedSize && sizes.find(([s]) => s === selectedSize)?.[1] === 0 && (
