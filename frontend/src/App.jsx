@@ -13,6 +13,17 @@ import axios from 'axios';
 const CART_KEY = 'yakimoto_cart';
 const API_URL = import.meta.env.VITE_API_URL;
 
+axios.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      localStorage.removeItem("token");
+      window.location.href = "/admin"; // or wherever your login screen is
+    }
+    return Promise.reject(err);
+  }
+);
+
 function App() {
   const [cart, setCart] = useState(() => {
     // Load from localStorage on first render
