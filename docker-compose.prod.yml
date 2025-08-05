@@ -20,7 +20,9 @@ services:
       dockerfile: Dockerfile.prod
     container_name: yakimoto_frontend
     expose:
-      - "80"
+      - "80"  # Exposes port internally to Docker network
+    ports:
+      - "8080:80"  # Bind to host port 8080 (Nginx will proxy to this)
     depends_on:
       - backend
     restart: always
