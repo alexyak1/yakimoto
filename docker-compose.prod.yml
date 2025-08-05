@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/app/uploads:/app/app/uploads
     restart: always
     env_file:
       - .env
@@ -16,18 +17,10 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
     container_name: yakimoto_frontend
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    working_dir: /app
-    command: npm run dev -- --host 0.0.0.0
-    stdin_open: true
-    tty: true
+      - "80:80"
     depends_on:
       - backend
-    env_file:
-      - .env
+    restart: always

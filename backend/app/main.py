@@ -38,6 +38,10 @@ app.add_middleware(
         "http://localhost:5173",
         "http://192.168.0.100:5173",
         "http://46.62.154.96:5173",  # Produktion
+        "http://localhost",
+        "http://localhost:80",
+        "http://192.168.0.100",
+        "http://192.168.0.100:80",
     ],
     allow_credentials=True,
     allow_methods=["*"],
