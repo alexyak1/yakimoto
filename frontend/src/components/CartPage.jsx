@@ -1,10 +1,64 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
+import { checkout } from '../api';
+import { useNavigate } from 'react-router-dom';
+
 const API_URL = import.meta.env.VITE_API_URL;
 
-
 export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const navigate = useNavigate();
+
+  // Customer input states
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [payment, setPayment] = useState('swish');
+
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) {
+      alert('Kundvagnen är tom.');
+      return;
+    }
+
+    if (!firstName || !lastName || !email || !phone) {
+      alert('Fyll i alla kunduppgifter.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          size: item.selectedSize,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        total,
+        customer: {
+          firstName,
+          lastName,
+          email,
+          phone,
+        },
+        payment,
+      };
+
+      await checkout(payload);
+      setMessage('✅ Ordern är lagd!');
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setMessage('❌ Något gick fel vid beställning.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -19,14 +73,12 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
               key={index}
               className="flex items-start justify-between border-b pb-6"
             >
-              {/* Product Image */}
               <img
                 src={`${API_URL}/uploads/${item.images?.[0]}`}
                 alt={item.name}
                 className="w-28 h-28 object-cover rounded"
               />
 
-              {/* Product Info */}
               <div className="flex-1 px-4">
                 <h3 className="text-lg font-semibold">{item.name}</h3>
                 <p className="text-sm text-gray-600">Produktbeskrivning</p>
@@ -62,23 +114,22 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
                 </div>
               </div>
 
-              {/* Price */}
               <div className="text-right font-semibold">
                 {item.price * item.quantity} kr
               </div>
             </div>
           ))}
 
-          {/* Total & Checkout */}
           <div className="flex justify-between items-center pt-8 border-t mt-4">
             <div className="text-xl font-semibold">Totalt</div>
             <div className="text-2xl font-bold">{total} kr</div>
           </div>
 
+
           <div className="text-right mt-6">
             <button
               className="bg-black text-white px-6 py-3 rounded-full hover:bg-gray-900 transition"
-              onClick={() => alert('Fortsätt till betalning kommer snart')}
+              onClick={() => navigate('/checkout')}
             >
               Gå till betalning
             </button>

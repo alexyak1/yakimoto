@@ -5,11 +5,15 @@ import uuid
 import sqlite3
 import jwt
 import shutil
-from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 load_dotenv()
 
@@ -222,3 +226,64 @@ def login(password: str = Form(...)):
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return {"token": token}
+
+import json  # ensure at top of file
+
+import json  # Ensure this is imported at the top
+
+@app.post("/checkout")
+def create_order(order: dict = Body(...)):
+    print("Received order:", order)
+
+    customer = order.get("customer", {})
+    items = order.get("items", [])
+    payment = customer.get("payment") or order.get("payment")
+
+    # Compose email
+    body = f"Ny beställning från {customer.get('firstName', '')} {customer.get('lastName', '')}\n\n"
+    body += f"E-post: {customer.get('email', '')}\nTelefon: {customer.get('phone', '')}\nBetalning: {payment}\n\n"
+    body += "Produkter:\n"
+    for item in items:
+        body += f"- {item.get('name')} ({item.get('size')}) x{item.get('quantity')} – {item.get('price')} kr\n"
+
+    msg = MIMEMultipart()
+    msg["From"] = os.getenv("SMTP_USER")
+    msg["To"] = os.getenv("EMAIL_RECEIVER")
+    msg["Subject"] = "Ny beställning på Yakimoto Dojo"
+    msg.attach(MIMEText(body, "plain"))
+
+    try:
+        with smtplib.SMTP(os.getenv("SMTP_SERVER"), int(os.getenv("SMTP_PORT"))) as server:
+            server.starttls()
+            server.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD"))
+            server.send_message(msg)
+            print("Email sent.")
+    except Exception as e:
+        print("Failed to send email:", e)
+        raise HTTPException(status_code=500, detail="Failed to send email")
+
+    # 🔽 Update stock levels in the database
+    conn = get_db()
+    cursor = conn.cursor()
+
+    for item in items:
+        product_id = item["id"]
+        size = str(item["selectedSize"])
+        quantity = int(item["quantity"])
+
+        cursor.execute("SELECT sizes FROM products WHERE id = ?", (product_id,))
+        row = cursor.fetchone()
+        if not row:
+            continue
+
+        sizes = json.loads(row["sizes"])
+        if size in sizes:
+            sizes[size] = max(0, sizes[size] - quantity)
+
+        updated_sizes = json.dumps(sizes)
+        cursor.execute("UPDATE products SET sizes = ? WHERE id = ?", (updated_sizes, product_id))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Order received, email sent, and stock updated"}
