@@ -19,8 +19,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
-        VITE_API_URL: "http://46.62.154.96:8000"  # 👈 Inject it here
-    container_name: yakimoto_frontend
+        - VITE_API_URL=http://46.62.154.96:8000
     ports:
       - "80:80"
     depends_on:
