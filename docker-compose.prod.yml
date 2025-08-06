@@ -4,6 +4,7 @@ services:
   backend:
     build:
       context: ./backend
+    container_name: yakimoto_backend
     ports:
       - "8000:8000"
     volumes:
@@ -19,6 +20,9 @@ services:
       dockerfile: Dockerfile.prod
       args:
         VITE_API_URL: https://yakimoto.se/api
+    container_name: yakimoto_frontend
     ports:
-      - "8080:80"  # serve NGINX on external 8080
+      - "8080:80"
+    depends_on:
+      - backend
     restart: always
