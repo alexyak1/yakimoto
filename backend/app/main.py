@@ -44,6 +44,7 @@ app.add_middleware(
         "http://192.168.0.100:5173",       # local IP
         "http://46.62.154.96",             # ✅ production
         "http://yakimoto.se",    
+        "https://www.yakimoto.se",
     ],
     allow_credentials=True,
     allow_methods=["*"],
