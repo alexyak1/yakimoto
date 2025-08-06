@@ -14,7 +14,7 @@ export default function Checkout() {
         payment: '',
     });
 
-    const [success, setSuccess] = useState(false); // ✅ add success flag
+    const [success, setSuccess] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -40,8 +40,12 @@ export default function Checkout() {
         try {
             await api.post('/checkout', orderData);
             toast.success("Beställning skickad!");
+
             localStorage.removeItem(CART_KEY);
-            setSuccess(true); // ✅ show thank-you message
+
+            window.dispatchEvent(new Event('cart-updated'));
+
+            setSuccess(true);
         } catch (err) {
             console.error(err);
             toast.error("Något gick fel. Försök igen.");
