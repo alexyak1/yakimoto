@@ -1,31 +1,28 @@
-version: "3.8"
+version: '3.8'
 
 services:
   backend:
+    container_name: yakimoto_backend
     build:
       context: ./backend
-    container_name: yakimoto_backend
     ports:
       - "8000:8000"
     volumes:
       - ./backend/app:/app/app
       - ./backend/app/uploads:/app/app/uploads
-    restart: always
     env_file:
       - .env
+    restart: always
 
-    frontend:
-      build:
-        context: ./frontend
-        dockerfile: Dockerfile.prod
-        args:
-          VITE_API_URL: https://yakimoto.se/api
-      container_name: yakimoto_frontend
-      expose:
-        - "80"
-      ports:
-        - "8080:80"
-      depends_on:
-        - backend
-      restart: always
-
+  frontend:
+    container_name: yakimoto_frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: https://yakimoto.se/api
+    ports:
+      - "8080:80"   # or use `expose: - "80"` if accessed only via NGINX
+    restart: always
+    depends_on:
+      - backend
