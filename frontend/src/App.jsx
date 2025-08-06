@@ -18,7 +18,7 @@ axios.interceptors.response.use(
   err => {
     if (err.response?.status === 401 || err.response?.status === 403) {
       localStorage.removeItem("token");
-      window.location.href = "/admin"; // or wherever your login screen is
+      window.location.href = "/admin";
     }
     return Promise.reject(err);
   }
@@ -26,7 +26,6 @@ axios.interceptors.response.use(
 
 function App() {
   const [cart, setCart] = useState(() => {
-    // Load from localStorage on first render
     const storedCart = localStorage.getItem(CART_KEY);
     return storedCart ? JSON.parse(storedCart) : [];
   });
@@ -103,7 +102,7 @@ function App() {
           <Route path="/cart" element={<CartPage cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />} />
           <Route path="/admin" element={<AdminPage token={token} login={login} />} />
           <Route path="/products/:id" element={<ProductDetailPage onAddToCart={addToCart} />} />
-          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/checkout" element={<Checkout cart={cart} setCart={setCart} />} />
         </Routes>
       </Router>
     </>

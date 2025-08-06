@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import { toast, Toaster } from 'react-hot-toast';
 import api from '../api';
 
-const API_URL = import.meta.env.VITE_API_URL;
-const CART_KEY = 'yakimoto_cart';
-
-export default function Checkout() {
+export default function Checkout({ cart, setCart }) {
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -24,8 +21,6 @@ export default function Checkout() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const cart = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
-
         if (cart.length === 0) {
             toast.error("Din kundvagn är tom.");
             return;
@@ -41,9 +36,9 @@ export default function Checkout() {
             await api.post('/checkout', orderData);
             toast.success("Beställning skickad!");
 
-            localStorage.removeItem(CART_KEY);
-
-            window.dispatchEvent(new Event('cart-updated'));
+            // ✅ Clear cart from state and storage
+            setCart([]);
+            localStorage.removeItem('yakimoto_cart');
 
             setSuccess(true);
         } catch (err) {
