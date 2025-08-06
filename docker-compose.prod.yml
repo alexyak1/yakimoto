@@ -18,6 +18,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: https://yakimoto.se/api
     container_name: yakimoto_frontend
     expose:
       - "80"  # Exposes port internally to Docker network
