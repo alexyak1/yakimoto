@@ -33,17 +33,34 @@ This is the official codebase for the Yakimoto Dojo online store — a custom e-
 
 ---
 
-## 🚀 Setup Instructions
+## 🚀 Run with Docker
 
-### Prerequisites
+### Dev (hot-reload)
 
-- Node.js (v18+)
-- Python (3.10+)
-- Docker & Docker Compose
-
-### Frontend
+Default compose file is used for development:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+docker compose up --build
+```
+
+Frontend → http://localhost:5173
+Backend API → http://localhost:8000
+Swagger UI → http://localhost:8000/docs
+
+Stop:
+
+```bash
+docker compose down
+```
+
+### Prod
+Use the production override file:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+Stop:
+
+```bash
+docker compose -f docker-compose.prod.yml down
+```
