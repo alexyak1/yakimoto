@@ -14,6 +14,8 @@ export default function ProductDetailPage({ onAddToCart }) {
     const [selectedSize, setSelectedSize] = useState(null);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [sizeError, setSizeError] = useState(false);
+    const [showSpecialOrder, setShowSpecialOrder] = useState(false);
+    const [customSize, setCustomSize] = useState("");
 
     useEffect(() => {
         api.get(`/products/${id}`)
@@ -47,6 +49,30 @@ export default function ProductDetailPage({ onAddToCart }) {
             toast.success(`${product.name} (${selectedSize}) tillagd i varukorgen`);
         } else {
             toast.error("Produkten med vald storlek finns redan i varukorgen. Gå till varukorgen för att ändra antal.");
+        }
+    };
+
+    const handleSpecialOrderAdd = () => {
+        const trimmed = (customSize || "").trim();
+        if (!trimmed) {
+            toast.error("Ange önskad storlek");
+            return;
+        }
+
+        const added = onAddToCart({
+            ...product,
+            selectedSize: `${trimmed} (beställning)`,
+            quantity: 1,
+            available: 1,
+            isSpecialOrder: true,
+        });
+
+        if (added) {
+            toast.success(`${product.name} (${trimmed}) beställning tillagd i varukorgen`);
+            setCustomSize("");
+            setShowSpecialOrder(false);
+        } else {
+            toast.error("Produkten med vald storlek finns redan i varukorgen.");
         }
     };
 
@@ -119,6 +145,45 @@ export default function ProductDetailPage({ onAddToCart }) {
                             </p>
                         )}
 
+                    </div>
+                    <div className="mt-4 space-y-2">
+                        {!showSpecialOrder ? (
+                            <button
+                                type="button"
+                                onClick={() => setShowSpecialOrder(true)}
+                                className="text-sm underline text-gray-700 hover:text-black"
+                            >
+                                Hittar du inte din storlek? Beställ den
+                            </button>
+                        ) : (
+                            <div className="border rounded p-3 space-y-2">
+                                <label className="text-sm font-medium">Önskad storlek</label>
+                                <input
+                                    type="text"
+                                    value={customSize}
+                                    onChange={(e) => setCustomSize(e.target.value)}
+                                    placeholder="t.ex. 150 cm, S, 44, etc."
+                                    className="w-full border rounded px-3 py-2"
+                                />
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleSpecialOrderAdd}
+                                        className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
+                                    >
+                                        Lägg i varukorg (beställning)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowSpecialOrder(false); setCustomSize(""); }}
+                                        className="px-4 py-2 border rounded"
+                                    >
+                                        Avbryt
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-600">Vi kontaktar dig för leveranstid på specialbeställningar.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
