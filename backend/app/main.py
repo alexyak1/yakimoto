@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import stripe
 
 load_dotenv()
 
@@ -26,6 +27,10 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
 JWT_EXP_DELTA_SECONDS = int(os.getenv("JWT_EXP_DELTA_SECONDS"))
 DB_FILE = "app/database.db"
 UPLOAD_DIR = "app/uploads"
+
+# Stripe configuration
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 
 # Ensure upload directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -246,9 +251,18 @@ def create_order(order: dict = Body(...)):
     items = order.get("items", [])
     payment = customer.get("payment") or order.get("payment")
 
+    # Handle different payment methods
+    payment_display = payment
+    if payment == "stripe":
+        payment_display = "Stripe (Betalning genomförd)"
+    elif payment == "swish":
+        payment_display = "Swish"
+    elif payment == "bankgiro":
+        payment_display = "Bankgiro"
+
     # Compose email
     body = f"Ny beställning från {customer.get('firstName', '')} {customer.get('lastName', '')}\n\n"
-    body += f"E-post: {customer.get('email', '')}\nTelefon: {customer.get('phone', '')}\nBetalning: {payment}\n\n"
+    body += f"E-post: {customer.get('email', '')}\nTelefon: {customer.get('phone', '')}\nBetalning: {payment_display}\n\n"
     body += "Produkter:\n"
     for item in items:
         body += f"- {item.get('name')} ({item.get('selectedSize')}) x{item.get('quantity')} – {item.get('price')} kr\n"
@@ -257,7 +271,7 @@ def create_order(order: dict = Body(...)):
     msg = MIMEMultipart()
     msg["From"] = os.getenv("SMTP_USER")
     msg["To"] = os.getenv("EMAIL_RECEIVER")
-    msg["Subject"] = "Ny beställning på Yakimoto Dojo"
+    msg["Subject"] = f"Ny beställning på Yakimoto Dojo ({payment_display})"
     msg.attach(MIMEText(body, "plain"))
 
     try:
@@ -295,3 +309,97 @@ def create_order(order: dict = Body(...)):
     conn.close()
 
     return {"message": "Order received, email sent, and stock updated"}
+
+@app.post("/create-payment-intent")
+def create_payment_intent(order: dict = Body(...)):
+    try:
+        # Calculate total amount in cents (Stripe uses smallest currency unit)
+        total_amount = int(order.get("total", 0) * 100)
+        
+        # Create payment intent
+        intent = stripe.PaymentIntent.create(
+            amount=total_amount,
+            currency='sek',  # Swedish Krona
+            metadata={
+                'customer_email': order.get("customer", {}).get("email", ""),
+                'customer_name': f"{order.get('customer', {}).get('firstName', '')} {order.get('customer', {}).get('lastName', '')}",
+                'items': str(len(order.get("items", [])))
+            }
+        )
+        
+        return {
+            "client_secret": intent.client_secret,
+            "publishable_key": STRIPE_PUBLISHABLE_KEY
+        }
+    except Exception as e:
+        print(f"Stripe error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create payment intent")
+
+@app.post("/confirm-payment")
+def confirm_payment(payment_data: dict = Body(...)):
+    try:
+        payment_intent_id = payment_data.get("payment_intent_id")
+        order = payment_data.get("order")
+        
+        # Verify payment intent
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        
+        if intent.status != "succeeded":
+            raise HTTPException(status_code=400, detail="Payment not completed")
+        
+        # Process the order (same as regular checkout)
+        customer = order.get("customer", {})
+        items = order.get("items", [])
+        
+        # Compose email
+        body = f"Ny beställning från {customer.get('firstName', '')} {customer.get('lastName', '')}\n\n"
+        body += f"E-post: {customer.get('email', '')}\nTelefon: {customer.get('phone', '')}\nBetalning: Stripe (Betalning genomförd)\n\n"
+        body += "Produkter:\n"
+        for item in items:
+            body += f"- {item.get('name')} ({item.get('selectedSize')}) x{item.get('quantity')} – {item.get('price')} kr\n"
+
+        msg = MIMEMultipart()
+        msg["From"] = os.getenv("SMTP_USER")
+        msg["To"] = os.getenv("EMAIL_RECEIVER")
+        msg["Subject"] = "Ny beställning på Yakimoto Dojo (Stripe betalning)"
+        msg.attach(MIMEText(body, "plain"))
+
+        try:
+            with smtplib.SMTP(os.getenv("SMTP_SERVER"), int(os.getenv("SMTP_PORT"))) as server:
+                server.starttls()
+                server.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD"))
+                server.send_message(msg)
+                print("Email sent.")
+        except Exception as e:
+            print("Failed to send email:", e)
+            raise HTTPException(status_code=500, detail="Failed to send email")
+
+        # Update stock levels in the database
+        conn = get_db()
+        cursor = conn.cursor()
+
+        for item in items:
+            product_id = item["id"]
+            size = str(item["selectedSize"])
+            quantity = int(item["quantity"])
+
+            cursor.execute("SELECT sizes FROM products WHERE id = ?", (product_id,))
+            row = cursor.fetchone()
+            if not row:
+                continue
+
+            sizes = json.loads(row["sizes"])
+            if size in sizes:
+                sizes[size] = max(0, sizes[size] - quantity)
+
+            updated_sizes = json.dumps(sizes)
+            cursor.execute("UPDATE products SET sizes = ? WHERE id = ?", (updated_sizes, product_id))
+
+        conn.commit()
+        conn.close()
+
+        return {"message": "Payment confirmed and order processed"}
+        
+    except Exception as e:
+        print(f"Payment confirmation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to confirm payment")

@@ -2,6 +2,141 @@ import React, { useState } from 'react';
 import { toast, Toaster } from 'react-hot-toast';
 import api from '../api';
 
+// Stripe payment form component with dynamic imports for React 19 compatibility
+function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey }) {
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [stripeLoaded, setStripeLoaded] = useState(false);
+    const [stripe, setStripe] = useState(null);
+    const [elements, setElements] = useState(null);
+    const [CardElement, setCardElement] = useState(null);
+    const [Elements, setElementsComponent] = useState(null);
+
+    React.useEffect(() => {
+        const loadStripe = async () => {
+            try {
+                const { loadStripe: loadStripeJS } = await import('@stripe/stripe-js');
+                const { Elements: StripeElements, CardElement: StripeCardElement } = await import('@stripe/react-stripe-js');
+                
+                if (publishableKey) {
+                    const stripeInstance = await loadStripeJS(publishableKey);
+                    setStripe(stripeInstance);
+                    setCardElement(() => StripeCardElement);
+                    setElementsComponent(() => StripeElements);
+                    setStripeLoaded(true);
+                }
+            } catch (error) {
+                console.error('Failed to load Stripe:', error);
+                toast.error("Kunde inte ladda Stripe. Använd Swish eller Bankgiro istället.");
+            }
+        };
+        loadStripe();
+    }, [publishableKey]);
+
+    const handleStripeSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!stripe || !elements) {
+            toast.error("Stripe är inte redo än. Försök igen om en stund.");
+            return;
+        }
+        
+        setIsProcessing(true);
+        
+        try {
+            // Create payment intent
+            const orderData = {
+                customer: formData,
+                items: cart,
+                total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+            };
+            
+            const { data } = await api.post('/create-payment-intent', orderData);
+            
+            // Confirm payment with Stripe
+            const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
+                payment_method: {
+                    card: elements.getElement(CardElement),
+                    billing_details: {
+                        name: `${formData.firstName} ${formData.lastName}`,
+                        email: formData.email,
+                        phone: formData.phone,
+                    },
+                }
+            });
+            
+            if (error) {
+                toast.error(error.message);
+            } else if (paymentIntent.status === 'succeeded') {
+                // Confirm payment with backend
+                await api.post('/confirm-payment', {
+                    payment_intent_id: paymentIntent.id,
+                    order: orderData
+                });
+                
+                toast.success("Betalning genomförd!");
+                setCart([]);
+                localStorage.removeItem('yakimoto_cart');
+                onSuccess();
+            }
+        } catch (err) {
+            console.error('Stripe payment error:', err);
+            toast.error("Något gick fel vid betalning. Försök igen.");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // Create elements when stripe is loaded
+    React.useEffect(() => {
+        if (stripe && !elements) {
+            const elementsInstance = stripe.elements();
+            setElements(elementsInstance);
+        }
+    }, [stripe, elements]);
+
+    if (!stripeLoaded || !CardElement || !stripe || !Elements) {
+        return (
+            <div className="p-4 border rounded bg-gray-50">
+                <h3 className="font-semibold mb-2">Kortuppgifter</h3>
+                <p className="text-gray-600">Laddar Stripe...</p>
+            </div>
+        );
+    }
+
+    return (
+        <Elements stripe={stripe}>
+            <form onSubmit={handleStripeSubmit} className="space-y-4">
+                <div className="p-4 border rounded">
+                    <h3 className="font-semibold mb-2">Kortuppgifter</h3>
+                    <CardElement
+                        options={{
+                            style: {
+                                base: {
+                                    fontSize: '16px',
+                                    color: '#424770',
+                                    '::placeholder': {
+                                        color: '#aab7c4',
+                                    },
+                                },
+                            },
+                        }}
+                    />
+                </div>
+                
+                <button
+                    type="submit"
+                    disabled={!stripe || !elements || isProcessing}
+                    className={`w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 ${
+                        !stripe || !elements || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                >
+                    {isProcessing ? 'Bearbetar betalning...' : 'Betala med kort'}
+                </button>
+            </form>
+        </Elements>
+    );
+}
+
 export default function Checkout({ cart, setCart }) {
     const [formData, setFormData] = useState({
         firstName: '',
@@ -13,6 +148,7 @@ export default function Checkout({ cart, setCart }) {
 
     const [success, setSuccess] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [stripePublishableKey, setStripePublishableKey] = useState(null);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -22,6 +158,27 @@ export default function Checkout({ cart, setCart }) {
     const choosePayment = (method) => {
         setFormData((data) => ({ ...data, payment: method }));
     };
+
+    // Load Stripe publishable key
+    React.useEffect(() => {
+        const loadStripeKey = async () => {
+            try {
+                const { data } = await api.post('/create-payment-intent', {
+                    customer: formData,
+                    items: cart,
+                    total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+                });
+                setStripePublishableKey(data.publishable_key);
+            } catch (err) {
+                console.error('Failed to load Stripe key:', err);
+            }
+        };
+        
+        if (cart.length > 0) {
+            loadStripeKey();
+        }
+    }, [cart, formData]);
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -36,7 +193,13 @@ export default function Checkout({ cart, setCart }) {
         }
 
         if (!formData.payment) {
-            toast.error("Välj betalningsmetod (Swish eller Bankgiro).");
+            toast.error("Välj betalningsmetod (Swish, Bankgiro eller Kort).");
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (formData.payment === 'stripe') {
+            toast.error("För Stripe-betalning, använd kortformuläret nedan.");
             setIsSubmitting(false);
             return;
         }
@@ -112,7 +275,7 @@ export default function Checkout({ cart, setCart }) {
                     {/* Payment toggle buttons */}
                     <div>
                         <h3 className="font-semibold mb-2">Välj betalningsmetod</h3>
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 flex-wrap">
                             <button
                                 type="button"
                                 onClick={() => choosePayment('swish')}
@@ -130,6 +293,15 @@ export default function Checkout({ cart, setCart }) {
                                 aria-pressed={formData.payment === 'bankgiro'}
                             >
                                 Bankgiro
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => choosePayment('stripe')}
+                                className={`px-4 py-2 rounded-lg border transition
+                  ${formData.payment === 'stripe' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white hover:bg-gray-50'}`}
+                                aria-pressed={formData.payment === 'stripe'}
+                            >
+                                Kort (Stripe)
                             </button>
                         </div>
 
@@ -157,15 +329,29 @@ export default function Checkout({ cart, setCart }) {
                                 </p>
                             </div>
                         )}
+
+                        {formData.payment === 'stripe' && (
+                            <div className="mt-4">
+                                <StripePaymentForm 
+                                    cart={cart} 
+                                    setCart={setCart} 
+                                    formData={formData}
+                                    publishableKey={stripePublishableKey}
+                                    onSuccess={() => setSuccess(true)}
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className={`bg-black text-white px-6 py-2 rounded hover:bg-gray-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                        {isSubmitting ? 'Skickar...' : 'Slutför beställning'}
-                    </button>
+                    {formData.payment !== 'stripe' && (
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className={`bg-black text-white px-6 py-2 rounded hover:bg-gray-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {isSubmitting ? 'Skickar...' : 'Slutför beställning'}
+                        </button>
+                    )}
                 </form>
             )}
         </>
