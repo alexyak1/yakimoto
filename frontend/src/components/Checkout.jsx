@@ -18,6 +18,7 @@ export default function Checkout({ cart, setCart }) {
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stripePublishableKey, setStripePublishableKey] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Only create the Stripe promise when a key exists
   const stripePromise = useMemo(() => {
@@ -30,6 +31,19 @@ export default function Checkout({ cart, setCart }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((data) => ({ ...data, [name]: value }));
+    
+    // Clear validation error when user starts typing
+    if (validationErrors[name]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleValidationError = (errors) => {
+    setValidationErrors(errors);
   };
 
 
@@ -93,40 +107,79 @@ export default function Checkout({ cart, setCart }) {
         <form onSubmit={handleSubmit} className="space-y-4 max-w-lg mx-auto p-4">
           <h2 className="text-2xl font-bold mb-4">Slutför beställning</h2>
 
-          <input
-            required
-            placeholder="Förnamn"
-            name="firstName"
-            value={formData.firstName}
-            onChange={handleChange}
-            className="w-full border px-4 py-2 rounded"
-          />
-          <input
-            required
-            placeholder="Efternamn"
-            name="lastName"
-            value={formData.lastName}
-            onChange={handleChange}
-            className="w-full border px-4 py-2 rounded"
-          />
-          <input
-            required
-            type="email"
-            placeholder="E-post"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full border px-4 py-2 rounded"
-          />
-           <input
-             required
-             type="tel"
-             placeholder="Telefonnummer"
-             name="phone"
-             value={formData.phone}
-             onChange={handleChange}
-             className="w-full border px-4 py-2 rounded"
-           />
+           <div>
+             <label className="block text-sm font-medium text-gray-700 mb-1">
+               Förnamn *
+             </label>
+             <input
+               required
+               placeholder="Förnamn"
+               name="firstName"
+               value={formData.firstName}
+               onChange={handleChange}
+               className={`w-full border px-4 py-2 rounded focus:outline-none focus:ring-2 ${
+                 validationErrors.firstName 
+                   ? 'border-red-500 bg-red-50 focus:ring-red-500' 
+                   : 'border-gray-300 focus:ring-blue-500'
+               }`}
+             />
+           </div>
+           
+           <div>
+             <label className="block text-sm font-medium text-gray-700 mb-1">
+               Efternamn *
+             </label>
+             <input
+               required
+               placeholder="Efternamn"
+               name="lastName"
+               value={formData.lastName}
+               onChange={handleChange}
+               className={`w-full border px-4 py-2 rounded focus:outline-none focus:ring-2 ${
+                 validationErrors.lastName 
+                   ? 'border-red-500 bg-red-50 focus:ring-red-500' 
+                   : 'border-gray-300 focus:ring-blue-500'
+               }`}
+             />
+           </div>
+           
+           <div>
+             <label className="block text-sm font-medium text-gray-700 mb-1">
+               E-post *
+             </label>
+             <input
+               required
+               type="email"
+               placeholder="E-post"
+               name="email"
+               value={formData.email}
+               onChange={handleChange}
+               className={`w-full border px-4 py-2 rounded focus:outline-none focus:ring-2 ${
+                 validationErrors.email 
+                   ? 'border-red-500 bg-red-50 focus:ring-red-500' 
+                   : 'border-gray-300 focus:ring-blue-500'
+               }`}
+             />
+           </div>
+           
+           <div>
+             <label className="block text-sm font-medium text-gray-700 mb-1">
+               Telefonnummer *
+             </label>
+             <input
+               required
+               type="tel"
+               placeholder="Telefonnummer"
+               name="phone"
+               value={formData.phone}
+               onChange={handleChange}
+               className={`w-full border px-4 py-2 rounded focus:outline-none focus:ring-2 ${
+                 validationErrors.phone 
+                   ? 'border-red-500 bg-red-50 focus:ring-red-500' 
+                   : 'border-gray-300 focus:ring-blue-500'
+               }`}
+             />
+           </div>
 
            {/* Delivery method selection */}
            <div>
@@ -193,14 +246,15 @@ export default function Checkout({ cart, setCart }) {
                  <p className="text-gray-600">Laddar Stripe…</p>
                </div>
              ) : (
-               <Elements stripe={stripePromise}>
-                 <StripePaymentForm
-                   cart={cart}
-                   setCart={setCart}
-                   formData={formData}
-                   onSuccess={() => setSuccess(true)}
-                 />
-               </Elements>
+                     <Elements stripe={stripePromise}>
+                       <StripePaymentForm
+                         cart={cart}
+                         setCart={setCart}
+                         formData={formData}
+                         onSuccess={() => setSuccess(true)}
+                         onValidationError={handleValidationError}
+                       />
+                     </Elements>
              )}
            </div>
 
