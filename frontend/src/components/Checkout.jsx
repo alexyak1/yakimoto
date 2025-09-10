@@ -45,7 +45,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         
         // Validate form data
         if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
-            toast.error("Vänligen fyll i alla kunduppgifter först.");
+            toast.error("Vänligen fyll i alla kunduppgifter (förnamn, efternamn, e-post, telefon) först innan du betalar med kort.");
             return;
         }
         
@@ -116,7 +116,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
 
     return (
         <Elements stripe={stripe}>
-            <form onSubmit={handleStripeSubmit} className="space-y-4">
+            <div className="space-y-4">
                 <div className="p-4 border rounded">
                     <h3 className="font-semibold mb-2">Kortuppgifter</h3>
                     <CardElement
@@ -135,7 +135,8 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                 </div>
                 
                 <button
-                    type="submit"
+                    type="button"
+                    onClick={handleStripeSubmit}
                     disabled={!stripe || !elements || isProcessing}
                     className={`w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 ${
                         !stripe || !elements || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
@@ -143,7 +144,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                 >
                     {isProcessing ? 'Bearbetar betalning...' : 'Betala med kort'}
                 </button>
-            </form>
+            </div>
         </Elements>
     );
 }
