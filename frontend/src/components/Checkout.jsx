@@ -87,7 +87,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                     return;
                 }
                 
-                // Confirm payment with Stripe
+                // Confirm payment with Stripe (this will validate the card)
                 const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
                     payment_method: {
                         card: cardElement,
@@ -100,7 +100,8 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                 });
                 
                 if (error) {
-                    toast.error(error.message);
+                    console.log('Stripe payment error:', error);
+                    toast.error(`Betalningsfel: ${error.message}`);
                 } else if (paymentIntent.status === 'succeeded') {
                     // Confirm payment with backend
                     await api.post('/confirm-payment', {
@@ -136,6 +137,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                                     },
                                 },
                             },
+                            hidePostalCode: false,
                         }}
                     />
                 </div>
