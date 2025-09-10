@@ -87,7 +87,25 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                     return;
                 }
                 
-                // Confirm payment with Stripe (this will validate the card)
+                // Wait a moment for the card element to be fully ready
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Check if card is complete before proceeding
+                console.log('Creating payment method...');
+                const { error: cardError, paymentMethod } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                });
+                
+                console.log('Payment method result:', { cardError, paymentMethod });
+                
+                if (cardError) {
+                    console.log('Card validation error:', cardError);
+                    toast.error(`Kortfel: ${cardError.message}`);
+                    return;
+                }
+                
+                // Confirm payment with Stripe
                 const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
                     payment_method: {
                         card: cardElement,
