@@ -3,12 +3,11 @@ import { toast, Toaster } from 'react-hot-toast';
 import api from '../api';
 
 // Stripe payment form component with dynamic imports for React 19 compatibility
-function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey }) {
+function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey, clientSecret }) {
     console.log('StripePaymentForm received formData:', formData);
     const [isProcessing, setIsProcessing] = useState(false);
     const [stripeLoaded, setStripeLoaded] = useState(false);
     const [stripe, setStripe] = useState(null);
-    const [elements, setElements] = useState(null);
     const [PaymentElement, setPaymentElement] = useState(null);
     const [Elements, setElementsComponent] = useState(null);
     const [useElements, setUseElements] = useState(null);
@@ -35,40 +34,11 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         loadStripe();
     }, [publishableKey]);
 
-    // Create payment intent when component mounts
-    React.useEffect(() => {
-        const createPaymentIntent = async () => {
-            if (stripeLoaded && cart.length > 0) {
-                try {
-                    const orderData = {
-                        customer: formData,
-                        items: cart,
-                        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-                    };
-                    
-                    const { data } = await api.post('/create-payment-intent', orderData);
-                    setClientSecret(data.client_secret);
-                    setPaymentIntentCreated(true);
-                } catch (error) {
-                    console.error('Failed to create payment intent:', error);
-                }
-            }
-        };
-        
-        createPaymentIntent();
-    }, [stripeLoaded, cart, formData]);
 
-    // Create elements when stripe is loaded
-    React.useEffect(() => {
-        if (stripe && !elements) {
-            const elementsInstance = stripe.elements();
-            setElements(elementsInstance);
-        }
-    }, [stripe, elements]);
 
     // Inner component that can use useElements hook
     const StripeFormInner = () => {
-        const elements = useElements ? useElements() : null;
+        const elements = useElements();
         
         const handleSubmit = async (e) => {
             e.preventDefault();
@@ -163,6 +133,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         );
     }
 
+        console.log('Rendering Elements with clientSecret:', clientSecret);
         return (
             <Elements stripe={stripe} options={{ clientSecret }}>
                 <StripeFormInner />
@@ -210,6 +181,28 @@ export default function Checkout({ cart, setCart }) {
         }
     }, [cart]);
 
+    // Create payment intent when form data is ready
+    React.useEffect(() => {
+        const createPaymentIntent = async () => {
+            if (stripePublishableKey && cart.length > 0 && formData.firstName && formData.lastName && formData.email && formData.phone) {
+                try {
+                    const orderData = {
+                        customer: formData,
+                        items: cart,
+                        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+                    };
+                    
+                    const { data } = await api.post('/create-payment-intent', orderData);
+                    setClientSecret(data.client_secret);
+                    setPaymentIntentCreated(true);
+                } catch (error) {
+                    console.error('Failed to create payment intent:', error);
+                }
+            }
+        };
+        
+        createPaymentIntent();
+    }, [stripePublishableKey, cart, formData]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -368,6 +361,7 @@ export default function Checkout({ cart, setCart }) {
                                     setCart={setCart} 
                                     formData={formData}
                                     publishableKey={stripePublishableKey}
+                                    clientSecret={clientSecret}
                                     onSuccess={() => setSuccess(true)}
                                 />
                             </div>
