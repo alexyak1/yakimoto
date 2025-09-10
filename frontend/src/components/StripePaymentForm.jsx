@@ -11,6 +11,11 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess }
 
   const handleStripeSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent form from bubbling up to parent
+
+    console.log('Stripe form submitted!');
+    console.log('Stripe ready:', !!stripe);
+    console.log('Elements ready:', !!elements);
 
     if (!stripe || !elements) {
       toast.error('Stripe är inte redo än. Försök igen om en stund.');
