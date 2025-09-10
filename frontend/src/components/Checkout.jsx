@@ -9,7 +9,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
     const [stripeLoaded, setStripeLoaded] = useState(false);
     const [stripe, setStripe] = useState(null);
     const [elements, setElements] = useState(null);
-    const [CardElement, setCardElement] = useState(null);
+    const [PaymentElement, setPaymentElement] = useState(null);
     const [Elements, setElementsComponent] = useState(null);
     const [useElements, setUseElements] = useState(null);
 
@@ -17,12 +17,12 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         const loadStripe = async () => {
             try {
                 const { loadStripe: loadStripeJS } = await import('@stripe/stripe-js');
-                const { Elements: StripeElements, CardElement: StripeCardElement, useElements: StripeUseElements } = await import('@stripe/react-stripe-js');
+                const { Elements: StripeElements, PaymentElement: StripePaymentElement, useElements: StripeUseElements } = await import('@stripe/react-stripe-js');
                 
                 if (publishableKey) {
                     const stripeInstance = await loadStripeJS(publishableKey);
                     setStripe(stripeInstance);
-                    setCardElement(() => StripeCardElement);
+                    setPaymentElement(() => StripePaymentElement);
                     setElementsComponent(() => StripeElements);
                     setUseElements(() => StripeUseElements);
                     setStripeLoaded(true);
@@ -78,43 +78,12 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                 
                 const { data } = await api.post('/create-payment-intent', orderData);
                 
-                // Get the card element
-                const cardElement = elements.getElement('card');
-                console.log('Card element:', cardElement);
-                
-                if (!cardElement) {
-                    toast.error("Kortuppgifterna är inte redo. Försök igen.");
-                    return;
-                }
-                
-                // Wait a moment for the card element to be fully ready
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // Check if card is complete before proceeding
-                console.log('Creating payment method...');
-                const { error: cardError, paymentMethod } = await stripe.createPaymentMethod({
-                    type: 'card',
-                    card: cardElement,
-                });
-                
-                console.log('Payment method result:', { cardError, paymentMethod });
-                
-                if (cardError) {
-                    console.log('Card validation error:', cardError);
-                    toast.error(`Kortfel: ${cardError.message}`);
-                    return;
-                }
-                
-                // Confirm payment with Stripe
-                const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
-                    payment_method: {
-                        card: cardElement,
-                        billing_details: {
-                            name: `${formData.firstName} ${formData.lastName}`,
-                            email: formData.email,
-                            phone: formData.phone,
-                        },
-                    }
+                // Confirm payment with Stripe using PaymentElement
+                const { error, paymentIntent } = await stripe.confirmPayment({
+                    elements,
+                    confirmParams: {
+                        return_url: window.location.origin + '/checkout',
+                    },
                 });
                 
                 if (error) {
@@ -144,18 +113,9 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
             <div className="space-y-4">
                 <div className="p-4 border rounded">
                     <h3 className="font-semibold mb-2">Kortuppgifter</h3>
-                    <CardElement
+                    <PaymentElement
                         options={{
-                            style: {
-                                base: {
-                                    fontSize: '16px',
-                                    color: '#424770',
-                                    '::placeholder': {
-                                        color: '#aab7c4',
-                                    },
-                                },
-                            },
-                            hidePostalCode: false,
+                            layout: 'tabs',
                         }}
                     />
                 </div>
@@ -174,7 +134,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         );
     };
 
-    if (!stripeLoaded || !CardElement || !stripe || !Elements || !useElements) {
+        if (!stripeLoaded || !PaymentElement || !stripe || !Elements || !useElements) {
         return (
             <div className="p-4 border rounded bg-gray-50">
                 <h3 className="font-semibold mb-2">Kortuppgifter</h3>
@@ -183,11 +143,11 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         );
     }
 
-    return (
-        <Elements stripe={stripe}>
-            <StripeFormInner />
-        </Elements>
-    );
+        return (
+            <Elements stripe={stripe}>
+                <StripeFormInner />
+            </Elements>
+        );
 }
 
 export default function Checkout({ cart, setCart }) {
@@ -202,6 +162,7 @@ export default function Checkout({ cart, setCart }) {
     const [success, setSuccess] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [stripePublishableKey, setStripePublishableKey] = useState(null);
+    const [clientSecret, setClientSecret] = useState(null);
 
     const handleChange = (e) => {
         const { name, value } = e.target;

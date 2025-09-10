@@ -327,6 +327,9 @@ def create_payment_intent(order: dict = Body(...)):
         intent = stripe.PaymentIntent.create(
             amount=total_amount,
             currency='sek',  # Swedish Krona
+            automatic_payment_methods={
+                'enabled': True,
+            },
             metadata={
                 'customer_email': order.get("customer", {}).get("email", ""),
                 'customer_name': f"{order.get('customer', {}).get('firstName', '')} {order.get('customer', {}).get('lastName', '')}",
