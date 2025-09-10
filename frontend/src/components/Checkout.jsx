@@ -11,18 +11,20 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
     const [elements, setElements] = useState(null);
     const [CardElement, setCardElement] = useState(null);
     const [Elements, setElementsComponent] = useState(null);
+    const [useElements, setUseElements] = useState(null);
 
     React.useEffect(() => {
         const loadStripe = async () => {
             try {
                 const { loadStripe: loadStripeJS } = await import('@stripe/stripe-js');
-                const { Elements: StripeElements, CardElement: StripeCardElement } = await import('@stripe/react-stripe-js');
+                const { Elements: StripeElements, CardElement: StripeCardElement, useElements: StripeUseElements } = await import('@stripe/react-stripe-js');
                 
                 if (publishableKey) {
                     const stripeInstance = await loadStripeJS(publishableKey);
                     setStripe(stripeInstance);
                     setCardElement(() => StripeCardElement);
                     setElementsComponent(() => StripeElements);
+                    setUseElements(() => StripeUseElements);
                     setStripeLoaded(true);
                 }
             } catch (error) {
@@ -33,69 +35,6 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         loadStripe();
     }, [publishableKey]);
 
-    const handleStripeSubmit = async (e) => {
-        e.preventDefault();
-        
-        console.log('Stripe form submitted with formData:', formData);
-        
-        if (!stripe || !elements) {
-            toast.error("Stripe är inte redo än. Försök igen om en stund.");
-            return;
-        }
-        
-        // Validate form data
-        if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
-            toast.error("Vänligen fyll i alla kunduppgifter (förnamn, efternamn, e-post, telefon) först innan du betalar med kort.");
-            return;
-        }
-        
-        setIsProcessing(true);
-        
-        try {
-            // Create payment intent
-            const orderData = {
-                customer: formData,
-                items: cart,
-                total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-            };
-            
-            console.log('Sending order data:', orderData);
-            
-            const { data } = await api.post('/create-payment-intent', orderData);
-            
-            // Confirm payment with Stripe
-            const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
-                payment_method: {
-                    card: elements.getElement('card'),
-                    billing_details: {
-                        name: `${formData.firstName} ${formData.lastName}`,
-                        email: formData.email,
-                        phone: formData.phone,
-                    },
-                }
-            });
-            
-            if (error) {
-                toast.error(error.message);
-            } else if (paymentIntent.status === 'succeeded') {
-                // Confirm payment with backend
-                await api.post('/confirm-payment', {
-                    payment_intent_id: paymentIntent.id,
-                    order: orderData
-                });
-                
-                toast.success("Betalning genomförd!");
-                setCart([]);
-                localStorage.removeItem('yakimoto_cart');
-                onSuccess();
-            }
-        } catch (err) {
-            console.error('Stripe payment error:', err);
-            toast.error("Något gick fel vid betalning. Försök igen.");
-        } finally {
-            setIsProcessing(false);
-        }
-    };
 
     // Create elements when stripe is loaded
     React.useEffect(() => {
@@ -105,17 +44,84 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         }
     }, [stripe, elements]);
 
-    if (!stripeLoaded || !CardElement || !stripe || !Elements) {
-        return (
-            <div className="p-4 border rounded bg-gray-50">
-                <h3 className="font-semibold mb-2">Kortuppgifter</h3>
-                <p className="text-gray-600">Laddar Stripe...</p>
-            </div>
-        );
-    }
+    // Inner component that can use useElements hook
+    const StripeFormInner = () => {
+        const elements = useElements ? useElements() : null;
+        
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            
+            console.log('Stripe form submitted with formData:', formData);
+            
+            if (!stripe || !elements) {
+                toast.error("Stripe är inte redo än. Försök igen om en stund.");
+                return;
+            }
+            
+            // Validate form data
+            if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
+                toast.error("Vänligen fyll i alla kunduppgifter (förnamn, efternamn, e-post, telefon) först innan du betalar med kort.");
+                return;
+            }
+            
+            setIsProcessing(true);
+            
+            try {
+                // Create payment intent
+                const orderData = {
+                    customer: formData,
+                    items: cart,
+                    total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+                };
+                
+                console.log('Sending order data:', orderData);
+                
+                const { data } = await api.post('/create-payment-intent', orderData);
+                
+                // Get the card element
+                const cardElement = elements.getElement('card');
+                console.log('Card element:', cardElement);
+                
+                if (!cardElement) {
+                    toast.error("Kortuppgifterna är inte redo. Försök igen.");
+                    return;
+                }
+                
+                // Confirm payment with Stripe
+                const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
+                    payment_method: {
+                        card: cardElement,
+                        billing_details: {
+                            name: `${formData.firstName} ${formData.lastName}`,
+                            email: formData.email,
+                            phone: formData.phone,
+                        },
+                    }
+                });
+                
+                if (error) {
+                    toast.error(error.message);
+                } else if (paymentIntent.status === 'succeeded') {
+                    // Confirm payment with backend
+                    await api.post('/confirm-payment', {
+                        payment_intent_id: paymentIntent.id,
+                        order: orderData
+                    });
+                    
+                    toast.success("Betalning genomförd!");
+                    setCart([]);
+                    localStorage.removeItem('yakimoto_cart');
+                    onSuccess();
+                }
+            } catch (err) {
+                console.error('Stripe payment error:', err);
+                toast.error("Ett fel uppstod vid betalningen. Försök igen.");
+            } finally {
+                setIsProcessing(false);
+            }
+        };
 
-    return (
-        <Elements stripe={stripe}>
+        return (
             <div className="space-y-4">
                 <div className="p-4 border rounded">
                     <h3 className="font-semibold mb-2">Kortuppgifter</h3>
@@ -136,7 +142,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                 
                 <button
                     type="button"
-                    onClick={handleStripeSubmit}
+                    onClick={handleSubmit}
                     disabled={!stripe || !elements || isProcessing}
                     className={`w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 ${
                         !stripe || !elements || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
@@ -145,6 +151,21 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                     {isProcessing ? 'Bearbetar betalning...' : 'Betala med kort'}
                 </button>
             </div>
+        );
+    };
+
+    if (!stripeLoaded || !CardElement || !stripe || !Elements || !useElements) {
+        return (
+            <div className="p-4 border rounded bg-gray-50">
+                <h3 className="font-semibold mb-2">Kortuppgifter</h3>
+                <p className="text-gray-600">Laddar Stripe...</p>
+            </div>
+        );
+    }
+
+    return (
+        <Elements stripe={stripe}>
+            <StripeFormInner />
         </Elements>
     );
 }
