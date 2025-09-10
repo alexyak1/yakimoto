@@ -3,7 +3,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import api from '../api';
 
 // Stripe payment form component
-function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey, clientSecret }) {
+const StripePaymentForm = React.memo(function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey, clientSecret }) {
     console.log('StripePaymentForm received formData:', formData);
     const [isProcessing, setIsProcessing] = useState(false);
     const [stripeLoaded, setStripeLoaded] = useState(false);
@@ -146,7 +146,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey,
             <StripeFormInner />
         </Elements>
     );
-}
+});
 
 export default function Checkout({ cart, setCart }) {
     const [formData, setFormData] = useState({
@@ -164,6 +164,11 @@ export default function Checkout({ cart, setCart }) {
     const [paymentIntentCreated, setPaymentIntentCreated] = useState(false);
 
     const handleChange = (e) => {
+        // Don't allow form changes during Stripe payment processing
+        if (formData.payment === 'stripe' && isSubmitting) {
+            return;
+        }
+        
         const { name, value } = e.target;
         setFormData((data) => ({ ...data, [name]: value }));
         
@@ -406,18 +411,18 @@ export default function Checkout({ cart, setCart }) {
                             </div>
 
                             <div className="mt-4">
-                                {formData.payment === 'stripe' && (
-                                    <div className="mt-4">
-                                        <StripePaymentForm 
-                                            cart={cart} 
-                                            setCart={setCart} 
-                                            formData={formData}
-                                            publishableKey={stripePublishableKey}
-                                            clientSecret={clientSecret}
-                                            onSuccess={() => setSuccess(true)}
-                                        />
-                                    </div>
-                                )}
+                        {formData.payment === 'stripe' && (
+                            <div className="mt-4">
+                                <StripePaymentForm 
+                                    cart={cart} 
+                                    setCart={setCart} 
+                                    formData={formData}
+                                    publishableKey={stripePublishableKey}
+                                    clientSecret={clientSecret}
+                                    onSuccess={() => setSuccess(true)}
+                                />
+                            </div>
+                        )}
                             </div>
 
                             {formData.payment !== 'stripe' && (
