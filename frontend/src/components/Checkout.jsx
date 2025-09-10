@@ -35,6 +35,28 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         loadStripe();
     }, [publishableKey]);
 
+    // Create payment intent when component mounts
+    React.useEffect(() => {
+        const createPaymentIntent = async () => {
+            if (stripeLoaded && cart.length > 0) {
+                try {
+                    const orderData = {
+                        customer: formData,
+                        items: cart,
+                        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+                    };
+                    
+                    const { data } = await api.post('/create-payment-intent', orderData);
+                    setClientSecret(data.client_secret);
+                    setPaymentIntentCreated(true);
+                } catch (error) {
+                    console.error('Failed to create payment intent:', error);
+                }
+            }
+        };
+        
+        createPaymentIntent();
+    }, [stripeLoaded, cart, formData]);
 
     // Create elements when stripe is loaded
     React.useEffect(() => {
@@ -74,9 +96,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                     total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
                 };
                 
-                console.log('Sending order data:', orderData);
-                
-                const { data } = await api.post('/create-payment-intent', orderData);
+                console.log('Confirming payment with client secret:', clientSecret);
                 
                 // Confirm payment with Stripe using PaymentElement
                 const { error, paymentIntent } = await stripe.confirmPayment({
@@ -134,7 +154,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
         );
     };
 
-        if (!stripeLoaded || !PaymentElement || !stripe || !Elements || !useElements) {
+        if (!stripeLoaded || !PaymentElement || !stripe || !Elements || !useElements || !clientSecret) {
         return (
             <div className="p-4 border rounded bg-gray-50">
                 <h3 className="font-semibold mb-2">Kortuppgifter</h3>
@@ -144,7 +164,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
     }
 
         return (
-            <Elements stripe={stripe}>
+            <Elements stripe={stripe} options={{ clientSecret }}>
                 <StripeFormInner />
             </Elements>
         );
@@ -163,6 +183,7 @@ export default function Checkout({ cart, setCart }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [stripePublishableKey, setStripePublishableKey] = useState(null);
     const [clientSecret, setClientSecret] = useState(null);
+    const [paymentIntentCreated, setPaymentIntentCreated] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
