@@ -66,7 +66,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
             // Confirm payment with Stripe
             const { error, paymentIntent } = await stripe.confirmCardPayment(data.client_secret, {
                 payment_method: {
-                    card: elements.getElement(CardElement),
+                    card: elements.getElement('card'),
                     billing_details: {
                         name: `${formData.firstName} ${formData.lastName}`,
                         email: formData.email,
