@@ -37,23 +37,11 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey,
     // Inner component that can use useElements hook
     const StripeFormInner = () => {
         const elements = useElements();
-        const [isElementReady, setIsElementReady] = useState(false);
-        
-        React.useEffect(() => {
-            if (elements) {
-                // Wait a bit for the PaymentElement to be fully mounted
-                const timer = setTimeout(() => {
-                    setIsElementReady(true);
-                }, 1000);
-                return () => clearTimeout(timer);
-            }
-        }, [elements]);
         
         const handleSubmit = async (e) => {
             e.preventDefault();
             
             console.log('Stripe form submitted with formData:', formData);
-            console.log('Elements ready:', isElementReady);
             console.log('Elements object:', elements);
             
             if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
@@ -61,8 +49,8 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey,
                 return;
             }
 
-            if (!stripe || !elements || !isElementReady) {
-                toast.error("Betalningsformuläret är inte redo än. Vänta en stund och försök igen.");
+            if (!stripe || !elements) {
+                toast.error("Stripe är inte redo än. Försök igen om en stund.");
                 return;
             }
 
@@ -122,12 +110,12 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey,
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={!stripe || !elements || !isElementReady || isProcessing}
+                    disabled={!stripe || !elements || isProcessing}
                     className={`w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 ${
-                        !stripe || !elements || !isElementReady || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                        !stripe || !elements || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                 >
-                    {!isElementReady ? 'Laddar betalningsformulär...' : isProcessing ? 'Bearbetar betalning...' : 'Betala med kort'}
+                    {isProcessing ? 'Bearbetar betalning...' : 'Betala med kort'}
                 </button>
             </div>
         );
@@ -144,7 +132,7 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey,
 
     console.log('Rendering Elements with clientSecret:', clientSecret);
     return (
-        <Elements stripe={stripe} options={{ clientSecret }}>
+        <Elements key={clientSecret} stripe={stripe} options={{ clientSecret }}>
             <StripeFormInner />
         </Elements>
     );
@@ -186,10 +174,10 @@ export default function Checkout({ cart, setCart }) {
         }
     }, [cart]);
 
-    // Create payment intent when form data is ready
+    // Create payment intent when form data is ready (only once)
     React.useEffect(() => {
         const createPaymentIntent = async () => {
-            if (stripePublishableKey && cart.length > 0 && formData.firstName && formData.lastName && formData.email && formData.phone) {
+            if (stripePublishableKey && cart.length > 0 && formData.firstName && formData.lastName && formData.email && formData.phone && !clientSecret) {
                 try {
                     const orderData = {
                         customer: formData,
@@ -207,7 +195,7 @@ export default function Checkout({ cart, setCart }) {
         };
         
         createPaymentIntent();
-    }, [stripePublishableKey, cart, formData]);
+    }, [stripePublishableKey, cart, formData, clientSecret]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
