@@ -9,10 +9,7 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess }
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleStripeSubmit = async (e) => {
-    e.preventDefault();
-    e.stopPropagation(); // Prevent form from bubbling up to parent
-
+  const handleStripeSubmit = async () => {
     console.log('Stripe form submitted!');
     console.log('Stripe ready:', !!stripe);
     console.log('Elements ready:', !!elements);
@@ -76,19 +73,20 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess }
   };
 
   return (
-    <form onSubmit={handleStripeSubmit} className="space-y-4">
+    <div className="space-y-4">
       <div className="p-4 border rounded">
         <h3 className="font-semibold mb-2">Kortuppgifter</h3>
         <CardElement options={{ style: { base: { fontSize: '16px' } } }} />
       </div>
 
       <button
-        type="submit"
+        type="button"
+        onClick={handleStripeSubmit}
         disabled={!stripe || !elements || isProcessing}
         className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700"
       >
         {isProcessing ? 'Bearbetar betalning...' : 'Betala med kort'}
       </button>
-    </form>
+    </div>
   );
 }
