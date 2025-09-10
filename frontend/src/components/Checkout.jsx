@@ -4,6 +4,7 @@ import api from '../api';
 
 // Stripe payment form component with dynamic imports for React 19 compatibility
 function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey }) {
+    console.log('StripePaymentForm received formData:', formData);
     const [isProcessing, setIsProcessing] = useState(false);
     const [stripeLoaded, setStripeLoaded] = useState(false);
     const [stripe, setStripe] = useState(null);
@@ -35,8 +36,16 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
     const handleStripeSubmit = async (e) => {
         e.preventDefault();
         
+        console.log('Stripe form submitted with formData:', formData);
+        
         if (!stripe || !elements) {
             toast.error("Stripe är inte redo än. Försök igen om en stund.");
+            return;
+        }
+        
+        // Validate form data
+        if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
+            toast.error("Vänligen fyll i alla kunduppgifter först.");
             return;
         }
         
@@ -49,6 +58,8 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey 
                 items: cart,
                 total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
             };
+            
+            console.log('Sending order data:', orderData);
             
             const { data } = await api.post('/create-payment-intent', orderData);
             
@@ -163,11 +174,7 @@ export default function Checkout({ cart, setCart }) {
     React.useEffect(() => {
         const loadStripeKey = async () => {
             try {
-                const { data } = await api.post('/create-payment-intent', {
-                    customer: formData,
-                    items: cart,
-                    total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-                });
+                const { data } = await api.get('/stripe-publishable-key');
                 setStripePublishableKey(data.publishable_key);
             } catch (err) {
                 console.error('Failed to load Stripe key:', err);
@@ -177,7 +184,7 @@ export default function Checkout({ cart, setCart }) {
         if (cart.length > 0) {
             loadStripeKey();
         }
-    }, [cart, formData]);
+    }, [cart]);
 
 
     const handleSubmit = async (e) => {

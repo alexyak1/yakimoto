@@ -310,6 +310,13 @@ def create_order(order: dict = Body(...)):
 
     return {"message": "Order received, email sent, and stock updated"}
 
+@app.get("/stripe-publishable-key")
+def get_stripe_publishable_key():
+    """Get Stripe publishable key for frontend"""
+    if not STRIPE_PUBLISHABLE_KEY:
+        raise HTTPException(status_code=500, detail="Stripe publishable key not configured")
+    return {"publishable_key": STRIPE_PUBLISHABLE_KEY}
+
 @app.post("/create-payment-intent")
 def create_payment_intent(order: dict = Body(...)):
     try:
