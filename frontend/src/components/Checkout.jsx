@@ -37,20 +37,29 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey,
     // Inner component that can use useElements hook
     const StripeFormInner = () => {
         const elements = useElements();
+        const [isElementReady, setIsElementReady] = useState(false);
+        
+        const handleElementChange = (event) => {
+            console.log('PaymentElement change event:', event);
+            if (event.complete) {
+                setIsElementReady(true);
+            }
+        };
         
         const handleSubmit = async (e) => {
             e.preventDefault();
             
             console.log('Stripe form submitted with formData:', formData);
             console.log('Elements object:', elements);
+            console.log('Element ready:', isElementReady);
             
             if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
                 toast.error("Vänligen fyll i alla kunduppgifter (förnamn, efternamn, e-post, telefon) först innan du betalar med kort.");
                 return;
             }
 
-            if (!stripe || !elements) {
-                toast.error("Stripe är inte redo än. Försök igen om en stund.");
+            if (!stripe || !elements || !isElementReady) {
+                toast.error("Betalningsformuläret är inte redo än. Vänta en stund och försök igen.");
                 return;
             }
 
@@ -104,18 +113,19 @@ function StripePaymentForm({ cart, setCart, formData, onSuccess, publishableKey,
                         options={{
                             layout: 'tabs',
                         }}
+                        onChange={handleElementChange}
                     />
                 </div>
                 
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={!stripe || !elements || isProcessing}
+                    disabled={!stripe || !elements || !isElementReady || isProcessing}
                     className={`w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 ${
-                        !stripe || !elements || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                        !stripe || !elements || !isElementReady || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                 >
-                    {isProcessing ? 'Bearbetar betalning...' : 'Betala med kort'}
+                    {!isElementReady ? 'Laddar betalningsformulär...' : isProcessing ? 'Bearbetar betalning...' : 'Betala med kort'}
                 </button>
             </div>
         );
