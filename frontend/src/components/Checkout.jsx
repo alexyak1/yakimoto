@@ -166,6 +166,12 @@ export default function Checkout({ cart, setCart }) {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((data) => ({ ...data, [name]: value }));
+        
+        // Reset Stripe state when switching away from Stripe
+        if (name === 'payment' && value !== 'stripe') {
+            setClientSecret(null);
+            setPaymentIntentCreated(false);
+        }
     };
 
     // Load Stripe publishable key
@@ -184,10 +190,10 @@ export default function Checkout({ cart, setCart }) {
         }
     }, [cart]);
 
-    // Create payment intent when form data is ready (only once)
+    // Create payment intent only when switching to Stripe payment
     React.useEffect(() => {
         const createPaymentIntent = async () => {
-            if (stripePublishableKey && cart.length > 0 && formData.firstName && formData.lastName && formData.email && formData.phone && !clientSecret) {
+            if (stripePublishableKey && cart.length > 0 && formData.payment === 'stripe' && !clientSecret) {
                 try {
                     const orderData = {
                         customer: formData,
@@ -205,7 +211,7 @@ export default function Checkout({ cart, setCart }) {
         };
         
         createPaymentIntent();
-    }, [stripePublishableKey, cart, formData, clientSecret]);
+    }, [stripePublishableKey, cart, formData.payment, clientSecret]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
