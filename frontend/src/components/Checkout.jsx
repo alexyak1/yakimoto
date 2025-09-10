@@ -12,7 +12,7 @@ export default function Checkout({ cart, setCart }) {
     lastName: '',
     email: '',
     phone: '',
-    payment: '',
+    deliveryMethod: 'pickup', // Default to pickup
   });
 
   const [success, setSuccess] = useState(false);
@@ -22,7 +22,9 @@ export default function Checkout({ cart, setCart }) {
   // Only create the Stripe promise when a key exists
   const stripePromise = useMemo(() => {
     if (!stripePublishableKey) return null;
-    return loadStripe(stripePublishableKey);
+    return loadStripe(stripePublishableKey, {
+      locale: 'sv' // Set Swedish locale
+    });
   }, [stripePublishableKey]);
 
   const handleChange = (e) => {
@@ -30,9 +32,6 @@ export default function Checkout({ cart, setCart }) {
     setFormData((data) => ({ ...data, [name]: value }));
   };
 
-  const choosePayment = (method) => {
-    setFormData((data) => ({ ...data, payment: method }));
-  };
 
   // Load Stripe publishable key when there’s something in the cart
   useEffect(() => {
@@ -58,18 +57,10 @@ export default function Checkout({ cart, setCart }) {
       return;
     }
 
-    if (!formData.payment) {
-      toast.error('Välj betalningsmetod (Swish, Bankgiro eller Kort).');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (formData.payment === 'stripe') {
-      // For Stripe, the card form handles submission
-      toast.error('För Stripe-betalning, använd kortformuläret nedan.');
-      setIsSubmitting(false);
-      return;
-    }
+    // Stripe payment is handled by StripePaymentForm component
+    toast.error('För betalning, använd kortformuläret nedan.');
+    setIsSubmitting(false);
+    return;
 
     const orderData = {
       customer: formData,
@@ -127,109 +118,92 @@ export default function Checkout({ cart, setCart }) {
             onChange={handleChange}
             className="w-full border px-4 py-2 rounded"
           />
-          <input
-            required
-            type="tel"
-            placeholder="Telefonnummer"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            className="w-full border px-4 py-2 rounded"
-          />
+           <input
+             required
+             type="tel"
+             placeholder="Telefonnummer"
+             name="phone"
+             value={formData.phone}
+             onChange={handleChange}
+             className="w-full border px-4 py-2 rounded"
+           />
 
-          {/* Payment toggle buttons */}
-          <div>
-            <h3 className="font-semibold mb-2">Välj betalningsmetod</h3>
-            <div className="flex gap-3 flex-wrap">
-              <button
-                type="button"
-                onClick={() => choosePayment('swish')}
-                className={`px-4 py-2 rounded-lg border transition ${
-                  formData.payment === 'swish'
-                    ? 'bg-green-600 text-white border-green-600'
-                    : 'bg-white hover:bg-gray-50'
-                }`}
-                aria-pressed={formData.payment === 'swish'}
-              >
-                Swish
-              </button>
+           {/* Delivery method selection */}
+           <div>
+             <h3 className="font-semibold mb-2">Leveransmetod</h3>
+             <div className="space-y-2">
+               <label className="flex items-center p-3 border rounded cursor-pointer hover:bg-gray-50">
+                 <input
+                   type="radio"
+                   name="deliveryMethod"
+                   value="pickup"
+                   checked={formData.deliveryMethod === 'pickup'}
+                   onChange={handleChange}
+                   className="mr-3"
+                 />
+                 <div>
+                   <div className="font-medium">Hämta i Alingsås Judoklubb</div>
+                   <div className="text-sm text-gray-600">Gratis</div>
+                 </div>
+               </label>
+               
+               <label className="flex items-center p-3 border rounded cursor-pointer hover:bg-gray-50">
+                 <input
+                   type="radio"
+                   name="deliveryMethod"
+                   value="postnord"
+                   checked={formData.deliveryMethod === 'postnord'}
+                   onChange={handleChange}
+                   className="mr-3"
+                 />
+                 <div>
+                   <div className="font-medium">PostNord leverans</div>
+                   <div className="text-sm text-gray-600">+82 SEK</div>
+                 </div>
+               </label>
+             </div>
+           </div>
 
-              <button
-                type="button"
-                onClick={() => choosePayment('bankgiro')}
-                className={`px-4 py-2 rounded-lg border transition ${
-                  formData.payment === 'bankgiro'
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white hover:bg-gray-50'
-                }`}
-                aria-pressed={formData.payment === 'bankgiro'}
-              >
-                Bankgiro
-              </button>
+           {/* Order total display */}
+           <div className="p-4 border rounded bg-gray-50">
+             <h3 className="font-semibold mb-2">Ordersammanfattning</h3>
+             <div className="space-y-1">
+               <div className="flex justify-between">
+                 <span>Produkter:</span>
+                 <span>{cart.reduce((sum, item) => sum + item.price * item.quantity, 0)} SEK</span>
+               </div>
+               <div className="flex justify-between">
+                 <span>Leverans:</span>
+                 <span>{formData.deliveryMethod === 'postnord' ? '82 SEK' : 'Gratis'}</span>
+               </div>
+               <div className="flex justify-between font-bold text-lg border-t pt-2">
+                 <span>Totalt:</span>
+                 <span>{cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (formData.deliveryMethod === 'postnord' ? 82 : 0)} SEK</span>
+               </div>
+             </div>
+           </div>
 
-              <button
-                type="button"
-                onClick={() => choosePayment('stripe')}
-                className={`px-4 py-2 rounded-lg border transition ${
-                  formData.payment === 'stripe'
-                    ? 'bg-purple-600 text-white border-purple-600'
-                    : 'bg-white hover:bg-gray-50'
-                }`}
-                aria-pressed={formData.payment === 'stripe'}
-              >
-                Kort (Stripe)
-              </button>
-            </div>
+           {/* Stripe payment section */}
+           <div>
+             <h3 className="font-semibold mb-2">Betalning med kort</h3>
+             
+             {!stripePromise ? (
+               <div className="p-4 border rounded bg-gray-50">
+                 <h3 className="font-semibold mb-2">Kortuppgifter</h3>
+                 <p className="text-gray-600">Laddar Stripe…</p>
+               </div>
+             ) : (
+               <Elements stripe={stripePromise}>
+                 <StripePaymentForm
+                   cart={cart}
+                   setCart={setCart}
+                   formData={formData}
+                   onSuccess={() => setSuccess(true)}
+                 />
+               </Elements>
+             )}
+           </div>
 
-            {/* Dynamic info sections */}
-            {formData.payment === 'bankgiro' && (
-              <div className="mt-4 p-4 border rounded bg-gray-50">
-                <p className="font-semibold">Betala till Bankgiro:</p>
-                <p className="text-lg tracking-wider">857-9914</p>
-                <p className="text-sm text-gray-600 mt-1">Ange ditt namn som meddelande.</p>
-              </div>
-            )}
-
-            {formData.payment === 'swish' && (
-              <div className="mt-4 p-4 border rounded bg-gray-50 flex flex-col items-center">
-                <p className="font-semibold mb-2">Swish-nummer: 070 986 57 19</p>
-                <img src="/swish-qr.jpg" alt="Swish QR" className="w-48 h-48 object-contain" />
-                <p className="text-sm text-gray-600 mt-2">Skanna QR med Swish eller ange numret manuellt.</p>
-              </div>
-            )}
-
-            {formData.payment === 'stripe' && (
-              <div className="mt-4">
-                {!stripePromise ? (
-                  <div className="p-4 border rounded bg-gray-50">
-                    <h3 className="font-semibold mb-2">Kortuppgifter</h3>
-                    <p className="text-gray-600">Laddar Stripe…</p>
-                  </div>
-                ) : (
-                  <Elements stripe={stripePromise}>
-                    <StripePaymentForm
-                      cart={cart}
-                      setCart={setCart}
-                      formData={formData}
-                      onSuccess={() => setSuccess(true)}
-                    />
-                  </Elements>
-                )}
-              </div>
-            )}
-          </div>
-
-          {formData.payment !== 'stripe' && (
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`bg-black text-white px-6 py-2 rounded hover:bg-gray-800 ${
-                isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSubmitting ? 'Skickar...' : 'Slutför beställning'}
-            </button>
-          )}
         </form>
       )}
     </>

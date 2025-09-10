@@ -22,10 +22,18 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess }
     setIsProcessing(true);
 
     try {
+      // Calculate delivery cost
+      const deliveryCost = formData.deliveryMethod === 'postnord' ? 82 : 0;
+      const itemsTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const total = itemsTotal + deliveryCost;
+
       const orderData = {
         customer: formData,
         items: cart,
-        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        deliveryMethod: formData.deliveryMethod,
+        deliveryCost: deliveryCost,
+        itemsTotal: itemsTotal,
+        total: total,
       };
 
       const { data } = await api.post('/create-payment-intent', orderData);
@@ -76,7 +84,20 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess }
     <div className="space-y-4">
       <div className="p-4 border rounded">
         <h3 className="font-semibold mb-2">Kortuppgifter</h3>
-        <CardElement options={{ style: { base: { fontSize: '16px' } } }} />
+        <CardElement 
+          options={{ 
+            style: { 
+              base: { 
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                  color: '#aab7c4',
+                },
+              },
+            },
+            hidePostalCode: false,
+          }} 
+        />
       </div>
 
       <button
