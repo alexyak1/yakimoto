@@ -5,6 +5,7 @@ import api from '../api';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import StripePaymentForm from './StripePaymentForm';
+import { trackBeginCheckout } from '../analytics';
 
 export default function Checkout({ cart, setCart }) {
   const [formData, setFormData] = useState({
@@ -47,7 +48,7 @@ export default function Checkout({ cart, setCart }) {
   };
 
 
-  // Load Stripe publishable key when there’s something in the cart
+  // Load Stripe publishable key when there's something in the cart
   useEffect(() => {
     const loadStripeKey = async () => {
       try {
@@ -57,7 +58,21 @@ export default function Checkout({ cart, setCart }) {
         console.error('Failed to load Stripe key:', err);
       }
     };
-    if (cart.length > 0) loadStripeKey();
+    if (cart.length > 0) {
+      loadStripeKey();
+      
+      // Track begin checkout event
+      const totalValue = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const items = cart.map(item => ({
+        item_id: item.id,
+        item_name: item.name,
+        item_category: item.category || 'Product',
+        quantity: item.quantity,
+        price: item.price,
+      }));
+      
+      trackBeginCheckout(totalValue, items);
+    }
   }, [cart]);
 
   const handleSubmit = async (e) => {

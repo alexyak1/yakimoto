@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ProductList } from './components/ProductList';
 import { CartPage } from './components/CartPage';
 import ProductDetailPage from './components/ProductDetailPage';
@@ -9,9 +9,21 @@ import { Toaster } from 'react-hot-toast';
 import logo from './assets/logo.png';
 import AdminPage from './components/AdminPage';
 import axios from 'axios';
+import { initGA, trackPageView, trackAddToCart, trackRemoveFromCart, trackBeginCheckout } from './analytics';
 
 const CART_KEY = 'yakimoto_cart';
 const API_URL = import.meta.env.VITE_API_URL;
+
+// Component to track page views
+function PageTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location]);
+
+  return null;
+}
 
 axios.interceptors.response.use(
   res => res,
@@ -30,6 +42,11 @@ function App() {
     return storedCart ? JSON.parse(storedCart) : [];
   });
 
+  // Initialize Google Analytics
+  useEffect(() => {
+    initGA();
+  }, []);
+
   // Save to localStorage when cart changes
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
@@ -45,11 +62,33 @@ function App() {
     if (exists) return false;
 
     setCart((prev) => [...prev, product]);
+    
+    // Track add to cart event
+    trackAddToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: product.quantity || 1,
+      category: product.category || 'Product'
+    });
+    
     return true;
   };
 
   const removeFromCart = (indexToRemove) => {
+    const itemToRemove = cart[indexToRemove];
     setCart((prev) => prev.filter((_, index) => index !== indexToRemove));
+    
+    // Track remove from cart event
+    if (itemToRemove) {
+      trackRemoveFromCart({
+        id: itemToRemove.id,
+        name: itemToRemove.name,
+        price: itemToRemove.price,
+        quantity: itemToRemove.quantity || 1,
+        category: itemToRemove.category || 'Product'
+      });
+    }
   };
 
   const updateQuantity = (index, newQty) => {
@@ -86,6 +125,7 @@ function App() {
         }}
       />
       <Router>
+        <PageTracker />
         <header className="bg-white shadow p-4 flex justify-between items-center">
           <Link to="/">
             <img src={logo} alt="Yakimoto Shop" className="h-10" />

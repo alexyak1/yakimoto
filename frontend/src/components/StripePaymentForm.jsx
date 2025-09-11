@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { toast } from 'react-hot-toast';
 import api from '../api';
+import { trackPurchase } from '../analytics';
 
 export default function StripePaymentForm({ cart, setCart, formData, onSuccess, onValidationError }) {
   const stripe = useStripe();
@@ -97,6 +98,17 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess, 
           payment_intent_id: paymentIntent.id,
           order: orderData,
         });
+
+        // Track purchase event
+        const items = cart.map(item => ({
+          item_id: item.id,
+          item_name: item.name,
+          item_category: item.category || 'Product',
+          quantity: item.quantity,
+          price: item.price,
+        }));
+        
+        trackPurchase(paymentIntent.id, total, 'SEK', items);
 
         toast.success('Betalning genomförd!');
         setCart([]);

@@ -14,6 +14,7 @@ This is the official codebase for the Yakimoto Dojo online store — a custom e-
 - **axios** – Promise-based HTTP client for browser and Node.js
 - **react-hook-form** – Performant form state management
 - **zustand** – Lightweight state management (if used)
+- **react-ga4** – Google Analytics 4 integration for tracking
 
 ### Backend
 
@@ -64,3 +65,47 @@ Stop:
 ```bash
 docker compose -f docker-compose.prod.yml down
 ```
+
+---
+
+## 📊 Google Analytics Setup
+
+The application includes Google Analytics 4 (GA4) integration for tracking user behavior and e-commerce events.
+
+### Setup Steps
+
+1. **Get your Google Analytics Measurement ID:**
+   - Go to [Google Analytics](https://analytics.google.com/)
+   - Create a new property or use an existing one
+   - Copy your Measurement ID (format: `G-XXXXXXXXXX`)
+
+2. **Configure environment variables:**
+   ```bash
+   # Copy the example environment file
+   cp frontend/.env.example frontend/.env
+   
+   # Edit the file and add your Google Analytics ID
+   VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+   ```
+
+3. **Restart the development server:**
+   ```bash
+   docker compose up --build
+   ```
+
+### Tracked Events
+
+The application automatically tracks:
+- **Page views** – All route changes
+- **Add to cart** – When products are added to cart
+- **Remove from cart** – When products are removed from cart
+- **Begin checkout** – When user starts checkout process
+- **Purchase** – When payment is completed successfully
+
+### Analytics Configuration
+
+The analytics configuration is located in `frontend/src/analytics.js` and includes:
+- Automatic initialization
+- E-commerce event tracking
+- Custom event tracking functions
+- Page view tracking for SPA navigation
