@@ -5,6 +5,13 @@ export const initGA = () => {
   const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
   
   if (GA_MEASUREMENT_ID) {
+    // Load the Google Analytics script
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+    document.head.appendChild(script);
+    
+    // Initialize ReactGA
     ReactGA.initialize(GA_MEASUREMENT_ID);
     console.log('Google Analytics initialized with ID:', GA_MEASUREMENT_ID);
   } else {
