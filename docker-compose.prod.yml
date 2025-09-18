@@ -21,6 +21,7 @@ services:
       args:
         VITE_API_URL: https://yakimoto.se/api
         VITE_GA_MEASUREMENT_ID: G-ZVJQZJY399
+        VITE_GOOGLE_ADS_ID: AW-17570454559
     container_name: yakimoto_frontend
     ports:
       - "8080:80"
