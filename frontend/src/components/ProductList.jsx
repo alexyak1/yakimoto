@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { generateStructuredData, addStructuredDataToHead } from '../seo.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -9,7 +10,12 @@ export const ProductList = () => {
 
   useEffect(() => {
     api.get('/products')
-      .then(res => setProducts(res.data))
+      .then(res => {
+        setProducts(res.data);
+        // Add structured data for SEO
+        const structuredData = generateStructuredData(res.data);
+        addStructuredDataToHead(structuredData);
+      })
       .catch(err => console.error("Error fetching products:", err));
   }, []);
 
