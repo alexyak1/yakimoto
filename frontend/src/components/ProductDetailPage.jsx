@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api';
 import { Toaster, toast } from "react-hot-toast";
+import { generateProductStructuredData, addStructuredDataToHead } from '../seo.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -19,7 +20,12 @@ export default function ProductDetailPage({ onAddToCart }) {
 
     useEffect(() => {
         api.get(`/products/${id}`)
-            .then(res => setProduct(res.data))
+            .then(res => {
+                setProduct(res.data);
+                // Add structured data for SEO
+                const structuredData = generateProductStructuredData(res.data);
+                addStructuredDataToHead(structuredData);
+            })
             .catch(err => console.error("Error loading product:", err));
     }, [id]);
 

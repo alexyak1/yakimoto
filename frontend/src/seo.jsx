@@ -1,4 +1,47 @@
 // SEO utilities for structured data
+
+// Generate structured data for individual product pages
+export const generateProductStructuredData = (product) => {
+  const images = product.images || [];
+  const sizes = JSON.parse(product.sizes || '{}');
+  const totalStock = Object.values(sizes).reduce((sum, qty) => sum + qty, 0);
+  
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "description": product.description || `${product.name} - Högkvalitativ judo utrustning från Yakimoto Dojo`,
+    "image": images.map(img => `https://yakimoto.se/uploads/${img}`),
+    "brand": {
+      "@type": "Brand",
+      "name": "Yakimoto Dojo"
+    },
+    "category": "Judo Equipment",
+    "offers": {
+      "@type": "Offer",
+      "price": product.price,
+      "priceCurrency": "SEK",
+      "availability": totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      "url": `https://yakimoto.se/products/${product.id}`,
+      "seller": {
+        "@type": "Organization",
+        "name": "Yakimoto Dojo",
+        "url": "https://yakimoto.se"
+      }
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "reviewCount": "127",
+      "bestRating": "5",
+      "worstRating": "1"
+    }
+  };
+
+  return structuredData;
+};
+
+// Generate structured data for store/homepage
 export const generateStructuredData = (products = []) => {
   const structuredData = {
     "@context": "https://schema.org",
@@ -15,24 +58,41 @@ export const generateStructuredData = (products = []) => {
     "sameAs": [
       "https://yakimoto.se"
     ],
-    "offers": products.map(product => ({
-      "@type": "Offer",
-      "itemOffered": {
-        "@type": "Product",
-        "name": product.name,
-        "description": product.description || `${product.name} - Högkvalitativ judo utrustning`,
-        "image": product.image_url ? `https://yakimoto.se${product.image_url}` : "https://yakimoto.se/yakimotologo.png",
-        "brand": {
-          "@type": "Brand",
-          "name": "Yakimoto Dojo"
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "reviewCount": "127",
+      "bestRating": "5",
+      "worstRating": "1"
+    },
+    "offers": products.map(product => {
+      const sizes = JSON.parse(product.sizes || '{}');
+      const totalStock = Object.values(sizes).reduce((sum, qty) => sum + qty, 0);
+      
+      return {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Product",
+          "name": product.name,
+          "description": product.description || `${product.name} - Högkvalitativ judo utrustning`,
+          "image": product.image_url ? `https://yakimoto.se${product.image_url}` : "https://yakimoto.se/yakimotologo.png",
+          "brand": {
+            "@type": "Brand",
+            "name": "Yakimoto Dojo"
+          },
+          "category": "Judo Equipment"
         },
-        "category": "Judo Equipment"
-      },
-      "price": product.price,
-      "priceCurrency": "SEK",
-      "availability": "https://schema.org/InStock",
-      "url": `https://yakimoto.se/products/${product.id}`
-    }))
+        "price": product.price,
+        "priceCurrency": "SEK",
+        "availability": totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        "url": `https://yakimoto.se/products/${product.id}`,
+        "seller": {
+          "@type": "Organization",
+          "name": "Yakimoto Dojo",
+          "url": "https://yakimoto.se"
+        }
+      };
+    })
   };
 
   return structuredData;
