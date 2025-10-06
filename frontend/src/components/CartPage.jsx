@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import { checkout } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { updatePageMeta } from '../seo.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -18,6 +19,15 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
   const [payment, setPayment] = useState('swish');
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  // Update page meta tags and canonical URL
+  useEffect(() => {
+    updatePageMeta(
+      "Kundvagn - Yakimoto Dojo | Judo Gi & Judo Dräkt",
+      "Din kundvagn på Yakimoto Dojo. Högkvalitativ judo utrustning för Alingsås Judoklubb.",
+      "https://yakimoto.se/cart"
+    );
+  }, []);
 
   const handleCheckout = async () => {
     if (cart.length === 0) {

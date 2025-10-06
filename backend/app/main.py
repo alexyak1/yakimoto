@@ -8,6 +8,7 @@ import shutil
 from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -165,6 +166,56 @@ def get_product(product_id: int):
     product_dict["images"] = [row["filename"] for row in images]
 
     return product_dict
+
+@app.get("/sitemap.xml")
+def get_sitemap():
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get all products
+    cursor.execute("SELECT id, name FROM products")
+    products = cursor.fetchall()
+    conn.close()
+    
+    # Generate sitemap XML
+    sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    
+    # Homepage
+    sitemap += '  <url>\n'
+    sitemap += '    <loc>https://yakimoto.se</loc>\n'
+    sitemap += '    <lastmod>2024-12-19</lastmod>\n'
+    sitemap += '    <changefreq>weekly</changefreq>\n'
+    sitemap += '    <priority>1.0</priority>\n'
+    sitemap += '  </url>\n'
+    
+    # Product pages
+    for product in products:
+        sitemap += '  <url>\n'
+        sitemap += f'    <loc>https://yakimoto.se/products/{product["id"]}</loc>\n'
+        sitemap += '    <lastmod>2024-12-19</lastmod>\n'
+        sitemap += '    <changefreq>monthly</changefreq>\n'
+        sitemap += '    <priority>0.8</priority>\n'
+        sitemap += '  </url>\n'
+    
+    # Cart and checkout pages (lower priority)
+    sitemap += '  <url>\n'
+    sitemap += '    <loc>https://yakimoto.se/cart</loc>\n'
+    sitemap += '    <lastmod>2024-12-19</lastmod>\n'
+    sitemap += '    <changefreq>monthly</changefreq>\n'
+    sitemap += '    <priority>0.3</priority>\n'
+    sitemap += '  </url>\n'
+    
+    sitemap += '  <url>\n'
+    sitemap += '    <loc>https://yakimoto.se/checkout</loc>\n'
+    sitemap += '    <lastmod>2024-12-19</lastmod>\n'
+    sitemap += '    <changefreq>monthly</changefreq>\n'
+    sitemap += '    <priority>0.3</priority>\n'
+    sitemap += '  </url>\n'
+    
+    sitemap += '</urlset>'
+    
+    return Response(content=sitemap, media_type="application/xml")
 
 @app.post("/products")
 def create_product(

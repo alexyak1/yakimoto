@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import { generateStructuredData, addStructuredDataToHead } from '../seo.jsx';
+import { generateStructuredData, addStructuredDataToHead, updatePageMeta } from '../seo.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -12,6 +12,14 @@ export const ProductList = () => {
     api.get('/products')
       .then(res => {
         setProducts(res.data);
+        
+        // Update page meta tags and canonical URL for homepage
+        updatePageMeta(
+          "Yakimoto Dojo - Judo Gi, Judo Dräkt & Judo Suit | Alingsås Judoklubb",
+          "Köp högkvalitativa judo gi, judo dräkt och judo suit från Yakimoto Dojo. Officiell butik för Alingsås Judoklubb. Snabb leverans och expertis inom judo-utrustning.",
+          "https://yakimoto.se"
+        );
+        
         // Add structured data for SEO
         const structuredData = generateStructuredData(res.data);
         addStructuredDataToHead(structuredData);

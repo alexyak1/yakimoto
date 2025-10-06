@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api';
 import { Toaster, toast } from "react-hot-toast";
-import { generateProductStructuredData, addStructuredDataToHead } from '../seo.jsx';
+import { generateProductStructuredData, addStructuredDataToHead, updatePageMeta } from '../seo.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -22,6 +22,15 @@ export default function ProductDetailPage({ onAddToCart }) {
         api.get(`/products/${id}`)
             .then(res => {
                 setProduct(res.data);
+                
+                // Update page meta tags and canonical URL
+                const productUrl = `https://yakimoto.se/products/${id}`;
+                const productTitle = `${res.data.name} - Yakimoto Dojo | Judo Gi & Judo Dräkt`;
+                const productDescription = res.data.description || 
+                    `Köp ${res.data.name} från Yakimoto Dojo. Högkvalitativ judo utrustning för Alingsås Judoklubb. Snabb leverans och expertis inom judo-utrustning.`;
+                
+                updatePageMeta(productTitle, productDescription, productUrl);
+                
                 // Add structured data for SEO
                 const structuredData = generateProductStructuredData(res.data);
                 addStructuredDataToHead(structuredData);

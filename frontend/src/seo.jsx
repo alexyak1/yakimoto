@@ -111,3 +111,45 @@ export const addStructuredDataToHead = (structuredData) => {
   script.textContent = JSON.stringify(structuredData);
   document.head.appendChild(script);
 };
+
+// Canonical URL management
+export const updateCanonicalUrl = (url) => {
+  // Remove existing canonical link
+  const existingCanonical = document.querySelector('link[rel="canonical"]');
+  if (existingCanonical) {
+    existingCanonical.remove();
+  }
+
+  // Add new canonical link
+  const canonicalLink = document.createElement('link');
+  canonicalLink.rel = 'canonical';
+  canonicalLink.href = url;
+  document.head.appendChild(canonicalLink);
+};
+
+// Update page title and meta description
+export const updatePageMeta = (title, description, url) => {
+  // Update title
+  document.title = title;
+  
+  // Update meta description
+  const metaDescription = document.querySelector('meta[name="description"]');
+  if (metaDescription) {
+    metaDescription.content = description;
+  }
+
+  // Update canonical URL
+  updateCanonicalUrl(url);
+
+  // Update Open Graph URL
+  const ogUrl = document.querySelector('meta[property="og:url"]');
+  if (ogUrl) {
+    ogUrl.content = url;
+  }
+
+  // Update Twitter URL
+  const twitterUrl = document.querySelector('meta[property="twitter:url"]');
+  if (twitterUrl) {
+    twitterUrl.content = url;
+  }
+};

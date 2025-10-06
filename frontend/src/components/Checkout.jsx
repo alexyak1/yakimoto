@@ -6,6 +6,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import StripePaymentForm from './StripePaymentForm';
 import { trackBeginCheckout } from '../analytics';
+import { updatePageMeta } from '../seo.jsx';
 
 export default function Checkout({ cart, setCart }) {
   const [formData, setFormData] = useState({
@@ -47,6 +48,15 @@ export default function Checkout({ cart, setCart }) {
     setValidationErrors(errors);
   };
 
+
+  // Update page meta tags and canonical URL
+  useEffect(() => {
+    updatePageMeta(
+      "Kassa - Yakimoto Dojo | Judo Gi & Judo Dräkt",
+      "Slutför din beställning på Yakimoto Dojo. Högkvalitativ judo utrustning för Alingsås Judoklubb.",
+      "https://yakimoto.se/checkout"
+    );
+  }, []);
 
   // Load Stripe publishable key when there's something in the cart
   useEffect(() => {
