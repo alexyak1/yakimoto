@@ -8,6 +8,7 @@ import { Toaster } from 'react-hot-toast';
 
 import logo from './assets/logo.png';
 import AdminPage from './components/AdminPage';
+import TimePage from './components/TimePage';
 import axios from 'axios';
 import { initGA, trackPageView, trackAddToCart, trackRemoveFromCart, trackBeginCheckout } from './analytics';
 
@@ -143,6 +144,7 @@ function App() {
           <Route path="/admin" element={<AdminPage token={token} login={login} />} />
           <Route path="/products/:id" element={<ProductDetailPage onAddToCart={addToCart} />} />
           <Route path="/checkout" element={<Checkout cart={cart} setCart={setCart} />} />
+          <Route path="/time" element={<TimePage />} />
         </Routes>
       </Router>
     </>
