@@ -32,7 +32,7 @@ function TimePage() {
   return (
     <div className="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center">
-        <div className="text-6xl font-mono font-black text-blue-400 mb-4">
+        <div className="text-8xl font-mono font-black text-blue-400 mb-4">
           {formatTime(currentTime)}
         </div>
         <div className="text-xl text-gray-300">
