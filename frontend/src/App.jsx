@@ -26,6 +26,29 @@ function PageTracker() {
   return null;
 }
 
+// Component to conditionally render header
+function ConditionalHeader({ cart, token, logout }) {
+  const location = useLocation();
+  
+  // Don't render header on time page
+  if (location.pathname === '/time') {
+    return null;
+  }
+  
+  return (
+    <header className="bg-white shadow p-4 flex justify-between items-center">
+      <Link to="/">
+        <img src={logo} alt="Yakimoto Shop" className="h-10" />
+      </Link>
+      <nav className="space-x-4">
+        <Link to="/">Produkter</Link>
+        <Link to="/cart">🛒 Kundvagn ({cart.length})</Link>
+        {token && <button onClick={logout}>Logout</button>}
+      </nav>
+    </header>
+  );
+}
+
 axios.interceptors.response.use(
   res => res,
   err => {
@@ -127,16 +150,7 @@ function App() {
       />
       <Router>
         <PageTracker />
-        <header className="bg-white shadow p-4 flex justify-between items-center">
-          <Link to="/">
-            <img src={logo} alt="Yakimoto Shop" className="h-10" />
-          </Link>
-          <nav className="space-x-4">
-            <Link to="/">Produkter</Link>
-            <Link to="/cart">🛒 Kundvagn ({cart.length})</Link>
-            {token && <button onClick={logout}>Logout</button>}
-          </nav>
-        </header>
+        <ConditionalHeader cart={cart} token={token} logout={logout} />
 
         <Routes>
           <Route path="/" element={<ProductList onAddToCart={addToCart} />} />
