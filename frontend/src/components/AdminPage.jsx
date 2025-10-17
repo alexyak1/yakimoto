@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { updatePageMeta } from '../seo.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -16,6 +17,14 @@ function AdminPage({ token, login }) {
 
     useEffect(() => {
         fetchProducts();
+        
+        // Update page meta tags and canonical URL for admin page
+        updatePageMeta(
+            "Admin - Yakimoto Dojo | Produkthantering",
+            "Administrativ panel för Yakimoto Dojo produkthantering.",
+            "https://yakimoto.se/admin",
+            "noindex, nofollow"
+        );
     }, []);
 
     const fetchProducts = async () => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { updatePageMeta } from '../seo.jsx';
 
 function TimePage() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -7,6 +8,14 @@ function TimePage() {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
+
+    // Update page meta tags and canonical URL for time page
+    updatePageMeta(
+      "Tid - Yakimoto Dojo",
+      "Aktuell tid och datum för Yakimoto Dojo.",
+      "https://yakimoto.se/time",
+      "noindex, nofollow"
+    );
 
     return () => clearInterval(timer);
   }, []);

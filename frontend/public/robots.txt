@@ -1,9 +1,13 @@
 User-agent: *
 Allow: /
+Allow: /cart
+Allow: /checkout
+Allow: /time
+Allow: /products/
+
+# Disallow admin pages and API endpoints
+Disallow: /admin
+Disallow: /api/
 
 # Sitemap
 Sitemap: https://yakimoto.se/sitemap.xml
-
-# Disallow admin pages
-Disallow: /admin
-Disallow: /api/

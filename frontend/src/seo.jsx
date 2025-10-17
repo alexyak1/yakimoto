@@ -112,23 +112,54 @@ export const addStructuredDataToHead = (structuredData) => {
   document.head.appendChild(script);
 };
 
+// URL normalization utility
+export const normalizeUrl = (url) => {
+  // Remove query parameters and fragments
+  const urlObj = new URL(url);
+  urlObj.search = '';
+  urlObj.hash = '';
+  
+  // Remove trailing slash except for root
+  let pathname = urlObj.pathname;
+  if (pathname !== '/' && pathname.endsWith('/')) {
+    pathname = pathname.slice(0, -1);
+  }
+  urlObj.pathname = pathname;
+  
+  return urlObj.toString();
+};
+
 // Canonical URL management
 export const updateCanonicalUrl = (url) => {
+  // Normalize the URL to ensure consistency
+  const normalizedUrl = normalizeUrl(url);
+  
   // Remove existing canonical link
   const existingCanonical = document.querySelector('link[rel="canonical"]');
   if (existingCanonical) {
     existingCanonical.remove();
   }
 
+  // Remove existing hreflang links
+  const existingHreflang = document.querySelectorAll('link[hreflang]');
+  existingHreflang.forEach(link => link.remove());
+
   // Add new canonical link
   const canonicalLink = document.createElement('link');
   canonicalLink.rel = 'canonical';
-  canonicalLink.href = url;
+  canonicalLink.href = normalizedUrl;
   document.head.appendChild(canonicalLink);
+  
+  // Also add hreflang for Swedish content
+  const hreflangLink = document.createElement('link');
+  hreflangLink.rel = 'alternate';
+  hreflangLink.hreflang = 'sv';
+  hreflangLink.href = normalizedUrl;
+  document.head.appendChild(hreflangLink);
 };
 
 // Update page title and meta description
-export const updatePageMeta = (title, description, url) => {
+export const updatePageMeta = (title, description, url, robots = "index, follow") => {
   // Update title
   document.title = title;
   
@@ -136,6 +167,12 @@ export const updatePageMeta = (title, description, url) => {
   const metaDescription = document.querySelector('meta[name="description"]');
   if (metaDescription) {
     metaDescription.content = description;
+  }
+
+  // Update robots meta tag
+  const robotsMeta = document.querySelector('meta[name="robots"]');
+  if (robotsMeta) {
+    robotsMeta.content = robots;
   }
 
   // Update canonical URL

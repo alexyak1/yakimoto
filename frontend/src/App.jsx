@@ -15,11 +15,20 @@ import { initGA, trackPageView, trackAddToCart, trackRemoveFromCart, trackBeginC
 const CART_KEY = 'yakimoto_cart';
 const API_URL = import.meta.env.VITE_API_URL;
 
-// Component to track page views
+// Component to track page views and normalize URLs
 function PageTracker() {
   const location = useLocation();
 
   useEffect(() => {
+    // Normalize the current URL to prevent duplicate content issues
+    const currentUrl = window.location.href;
+    const normalizedUrl = currentUrl.split('?')[0].replace(/\/$/, '');
+    
+    // If the URL has parameters or trailing slash, redirect to clean version
+    if (currentUrl !== normalizedUrl && !currentUrl.includes('#')) {
+      window.history.replaceState({}, '', normalizedUrl);
+    }
+    
     trackPageView(location.pathname + location.search);
   }, [location]);
 
