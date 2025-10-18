@@ -24,7 +24,6 @@ function TimePage() {
     return date.toLocaleTimeString('sv-SE', {
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
       hour12: false
     });
   };
@@ -41,7 +40,7 @@ function TimePage() {
   return (
     <div className="fixed inset-0 bg-gray-900 flex items-center justify-center z-50" style={{backgroundColor: '#111827'}}>
       <div className="bg-gray-800 p-4 rounded-lg shadow-lg text-center" style={{backgroundColor: '#1f2937'}}>
-        <div className="text-6xl font-mono font-black text-blue-400 mb-2" style={{color: '#bfdbfe', fontSize: '4rem', lineHeight: '1'}}>
+        <div className="text-6xl font-mono font-black text-blue-400 mb-2" style={{color: '#bfdbfe', fontSize: '6rem', lineHeight: '1'}}>
           {formatTime(currentTime)}
         </div>
         <div className="text-lg text-gray-300" style={{color: '#d1d5db', fontSize: '1rem'}}>
