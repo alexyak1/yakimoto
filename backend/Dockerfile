@@ -17,12 +17,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app
 
-# Create directories that will be used for volumes and ensure proper permissions
-RUN mkdir -p /app/app/data /app/app/uploads && \
-    chown -R appuser:appuser /app
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Switch to non-root user
-USER appuser
+# Create directories that will be used for volumes
+RUN mkdir -p /app/app/data /app/app/uploads
 
+# Set entrypoint (runs as root to fix permissions, then switches to appuser)
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Default command (will be run as appuser after entrypoint)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 

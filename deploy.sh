@@ -34,9 +34,25 @@ docker image prune -f
 # Remove dangling images
 docker image prune -a -f --filter "until=24h" || true
 
-echo "🔨 Building new images with BuildKit..."
-export DOCKER_BUILDKIT=1
-export COMPOSE_DOCKER_CLI_BUILD=1
+echo "🔨 Building new images..."
+# Check if buildx is available, if not try to install it or use legacy builder
+if docker buildx version > /dev/null 2>&1; then
+    echo "✅ BuildKit/buildx is available, using it..."
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
+else
+    echo "⚠️  BuildKit/buildx not available, attempting to install..."
+    if docker buildx install 2>/dev/null; then
+        echo "✅ BuildKit/buildx installed successfully!"
+        export DOCKER_BUILDKIT=1
+        export COMPOSE_DOCKER_CLI_BUILD=1
+    else
+        echo "⚠️  Could not install buildx, using legacy builder..."
+        echo "   (This may show deprecation warnings but will still work)"
+        unset DOCKER_BUILDKIT
+        unset COMPOSE_DOCKER_CLI_BUILD
+    fi
+fi
 
 docker-compose -f docker-compose.prod.yml build --no-cache || {
     echo "❌ Build failed!"
