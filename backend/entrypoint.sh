@@ -19,6 +19,6 @@ chown -R appuser:appuser /app/app/data /app/app/uploads
 chmod -R 755 /app/app/data /app/app/uploads
 
 # Switch to non-root user and run the application
-# "$@" passes all arguments correctly
-exec su appuser -c "exec \"\$@\"" -- "$@"
+# gosu is designed for this exact use case and handles signals properly
+exec gosu appuser "$@"
 

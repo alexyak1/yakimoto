@@ -1,5 +1,10 @@
 FROM python:3.11-slim
 
+# Install gosu for reliable user switching
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user
 RUN useradd -m -u 1000 appuser
 
