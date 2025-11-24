@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { generateStructuredData, addStructuredDataToHead, updatePageMeta } from '../seo.jsx';
-import { ProductGroup } from './ProductGroup';
+import { CategoriesSection } from './CategoriesSection';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -41,10 +41,11 @@ export const ProductList = () => {
   }
   return (
     <div className="p-6">
-      {/* Product Groups Section (like ridestore hero) */}
-      <ProductGroup category="judo gi" />
+      {/* Categories Section - shown first */}
+      <CategoriesSection />
       
-      {/* Regular Product Grid */}
+      {/* All Products Section */}
+      <h2 className="text-2xl font-bold mb-6">Alla produkter</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
 
       {products.map((product) => (
