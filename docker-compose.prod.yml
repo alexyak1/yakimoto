@@ -1,5 +1,11 @@
 version: "3.8"
 
+volumes:
+  yakimoto_database:
+    driver: local
+  yakimoto_uploads:
+    driver: local
+
 services:
   backend:
     build:
@@ -8,8 +14,14 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/app:/app/app
-      - ./backend/app/uploads:/app/app/uploads
+      # Use named volumes for persistent data (survives rebuilds and git resets)
+      # Database stored in Docker volume - persists across rebuilds
+      - yakimoto_database:/app/app/data
+      # Uploads stored in Docker volume - persists across rebuilds
+      - yakimoto_uploads:/app/app/uploads
+    environment:
+      # Point database to volume location
+      - DATA_DIR=/app/app/data
     restart: always
     env_file:
       - .env

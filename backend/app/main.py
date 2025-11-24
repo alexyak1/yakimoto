@@ -26,8 +26,14 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
 JWT_EXP_DELTA_SECONDS = int(os.getenv("JWT_EXP_DELTA_SECONDS"))
-DB_FILE = "app/database.db"
+# Use data directory for database (mounted as Docker volume in production)
+# This ensures data persists across rebuilds and git operations
+DATA_DIR = os.getenv("DATA_DIR", "app")
+DB_FILE = os.path.join(DATA_DIR, "database.db")
 UPLOAD_DIR = "app/uploads"
+
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # Stripe configuration
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
