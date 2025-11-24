@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import os
 import time
 import uuid
@@ -83,9 +83,34 @@ def setup_database():
             name TEXT,
             price INTEGER,
             image TEXT,
-            sizes TEXT
+            sizes TEXT,
+            category TEXT,
+            color TEXT,
+            gsm TEXT,
+            age_group TEXT
         )
     """)
+    
+    # Add new columns if they don't exist (for existing databases)
+    try:
+        conn.execute("ALTER TABLE products ADD COLUMN category TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    
+    try:
+        conn.execute("ALTER TABLE products ADD COLUMN color TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    
+    try:
+        conn.execute("ALTER TABLE products ADD COLUMN gsm TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    
+    try:
+        conn.execute("ALTER TABLE products ADD COLUMN age_group TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS product_images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,6 +126,13 @@ def setup_database():
             size TEXT,
             quantity INTEGER,
             FOREIGN KEY(product_id) REFERENCES products(id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            image_filename TEXT
         )
     """)
     conn.commit()
@@ -150,6 +182,136 @@ def read_products():
 
     conn.close()
     return result
+
+@app.get("/products/grouped/{category}")
+def get_grouped_products(category: str):
+    """Get products grouped by category with their variations"""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Fetch products in the category
+    cursor.execute("SELECT * FROM products WHERE category = ?", (category,))
+    products = cursor.fetchall()
+
+    result = []
+    for product in products:
+        product_dict = dict(product)
+
+        # Fetch images for each product
+        cursor.execute("SELECT filename FROM product_images WHERE product_id = ?", (product["id"],))
+        image_rows = cursor.fetchall()
+        product_dict["images"] = [img["filename"] for img in image_rows]
+
+        result.append(product_dict)
+
+    conn.close()
+    return result
+
+@app.get("/products/category/{category}")
+def get_products_by_category(category: str):
+    """Get all products in a category"""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Fetch products in the category
+    cursor.execute("SELECT * FROM products WHERE category = ?", (category,))
+    products = cursor.fetchall()
+
+    result = []
+    for product in products:
+        product_dict = dict(product)
+
+        # Fetch images for each product
+        cursor.execute("SELECT filename FROM product_images WHERE product_id = ?", (product["id"],))
+        image_rows = cursor.fetchall()
+        product_dict["images"] = [img["filename"] for img in image_rows]
+
+        result.append(product_dict)
+
+    conn.close()
+    return result
+
+# Category management endpoints
+@app.get("/categories")
+def get_categories():
+    """Get all categories"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM categories")
+    categories = cursor.fetchall()
+    conn.close()
+    return [dict(cat) for cat in categories]
+
+@app.get("/categories/{category_name}")
+def get_category(category_name: str):
+    """Get a specific category by name"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM categories WHERE name = ?", (category_name,))
+    category = cursor.fetchone()
+    conn.close()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return dict(category)
+
+@app.post("/categories")
+def create_category(
+    name: str = Form(...),
+    image: Optional[UploadFile] = File(None),
+    auth=Depends(verify_token),
+):
+    """Create or update a category"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    image_filename = None
+    if image and image.filename:
+        image_filename = f"{uuid.uuid4()}_{image.filename}"
+        image_path = os.path.join(UPLOAD_DIR, image_filename)
+        with open(image_path, "wb") as buffer:
+            buffer.write(image.file.read())
+    
+    # Check if category exists
+    cursor.execute("SELECT id FROM categories WHERE name = ?", (name,))
+    existing = cursor.fetchone()
+    
+    if existing:
+        # Update existing category
+        if image_filename:
+            cursor.execute(
+                "UPDATE categories SET image_filename = ? WHERE name = ?",
+                (image_filename, name)
+            )
+    else:
+        # Create new category
+        cursor.execute(
+            "INSERT INTO categories (name, image_filename) VALUES (?, ?)",
+            (name, image_filename)
+        )
+    
+    conn.commit()
+    conn.close()
+    return {"message": "Category created/updated", "name": name}
+
+@app.delete("/categories/{category_name}")
+def delete_category(category_name: str, auth=Depends(verify_token)):
+    """Delete a category"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get category image to delete it
+    cursor.execute("SELECT image_filename FROM categories WHERE name = ?", (category_name,))
+    category = cursor.fetchone()
+    
+    if category and category["image_filename"]:
+        image_path = os.path.join(UPLOAD_DIR, category["image_filename"])
+        if os.path.exists(image_path):
+            os.remove(image_path)
+    
+    cursor.execute("DELETE FROM categories WHERE name = ?", (category_name,))
+    conn.commit()
+    conn.close()
+    return {"message": "Category deleted", "name": category_name}
 
 @app.get("/products/{product_id}")
 def get_product(product_id: int):
@@ -229,6 +391,10 @@ def create_product(
     price: int = Form(...),
     sizes: str = Form(...),
     images: List[UploadFile] = File(...),
+    category: str = Form(None),
+    color: str = Form(None),
+    gsm: str = Form(None),
+    age_group: str = Form(None),
     auth=Depends(verify_token),
 ):
     conn = get_db()
@@ -236,8 +402,8 @@ def create_product(
 
     # Insert product (without image column)
     cursor.execute(
-        "INSERT INTO products (name, price, sizes) VALUES (?, ?, ?)",
-        (name, price, sizes)
+        "INSERT INTO products (name, price, sizes, category, color, gsm, age_group) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (name, price, sizes, category, color, gsm, age_group)
     )
     product_id = cursor.lastrowid
 
@@ -266,6 +432,10 @@ async def update_product(
     name: str = Form(...),
     price: float = Form(...),
     sizes: str = Form(...),
+    category: str = Form(None),
+    color: str = Form(None),
+    gsm: str = Form(None),
+    age_group: str = Form(None),
     auth=Depends(verify_token),
 ):
     conn = get_db()
@@ -273,8 +443,8 @@ async def update_product(
     
     # Update product basic info
     cursor.execute(
-        "UPDATE products SET name = ?, price = ?, sizes = ? WHERE id = ?",
-        (name, price, sizes, product_id),
+        "UPDATE products SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, age_group = ? WHERE id = ?",
+        (name, price, sizes, category, color, gsm, age_group, product_id),
     )
     
     # Handle new images if provided - parse form data manually to handle optional files

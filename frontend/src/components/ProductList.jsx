@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { generateStructuredData, addStructuredDataToHead, updatePageMeta } from '../seo.jsx';
+import { ProductGroup } from './ProductGroup';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -39,7 +40,12 @@ export const ProductList = () => {
     return <div className="p-4 text-red-500">Produkter kunde inte laddas.</div>;
   }
   return (
-    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="p-6">
+      {/* Product Groups Section (like ridestore hero) */}
+      <ProductGroup category="judo gi" />
+      
+      {/* Regular Product Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
 
       {products.map((product) => (
         <Link
@@ -71,7 +77,7 @@ export const ProductList = () => {
           )}
         </Link>
       ))}
+      </div>
     </div>
-
   );
 };

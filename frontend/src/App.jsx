@@ -4,6 +4,7 @@ import { ProductList } from './components/ProductList';
 import { CartPage } from './components/CartPage';
 import ProductDetailPage from './components/ProductDetailPage';
 import Checkout from './components/Checkout';
+import { CategoryPage } from './components/CategoryPage';
 import { Toaster } from 'react-hot-toast';
 
 import logo from './assets/logo.png';
@@ -166,6 +167,7 @@ function App() {
           <Route path="/cart" element={<CartPage cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />} />
           <Route path="/admin" element={<AdminPage token={token} login={login} />} />
           <Route path="/products/:id" element={<ProductDetailPage onAddToCart={addToCart} />} />
+          <Route path="/category/:categoryName" element={<CategoryPage />} />
           <Route path="/checkout" element={<Checkout cart={cart} setCart={setCart} />} />
           <Route path="/time" element={<TimePage />} />
         </Routes>

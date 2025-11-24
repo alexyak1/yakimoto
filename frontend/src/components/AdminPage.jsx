@@ -14,13 +14,22 @@ function AdminPage({ token, login }) {
     const [createSuccess, setCreateSuccess] = useState(false);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
-    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }] });
+    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "" });
     const [editImageFiles, setEditImageFiles] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
+    const [category, setCategory] = useState("");
+    const [color, setColor] = useState("");
+    const [gsm, setGsm] = useState("");
+    const [ageGroup, setAgeGroup] = useState("");
+    const [categories, setCategories] = useState([]);
+    const [categoryName, setCategoryName] = useState("");
+    const [categoryImage, setCategoryImage] = useState(null);
+    const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
     useEffect(() => {
         fetchProducts();
+        fetchCategories();
         
         // Update page meta tags and canonical URL for admin page
         updatePageMeta(
@@ -45,6 +54,61 @@ function AdminPage({ token, login }) {
         }
     };
 
+    const fetchCategories = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/categories`);
+            setCategories(res.data);
+        } catch (err) {
+            console.error("Failed to fetch categories", err);
+        }
+    };
+
+    const handleCreateCategory = async () => {
+        if (!categoryName.trim()) {
+            alert("Kategori namn krävs");
+            return;
+        }
+        
+        setIsCreatingCategory(true);
+        try {
+            const formData = new FormData();
+            formData.append("name", categoryName);
+            if (categoryImage) {
+                formData.append("image", categoryImage);
+            }
+
+            await axios.post(`${API_URL}/categories`, formData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            setCategoryName("");
+            setCategoryImage(null);
+            await fetchCategories();
+            alert("Kategori skapad/uppdaterad!");
+        } catch (error) {
+            console.error("Failed to create category", error);
+            alert("Kunde inte skapa kategori");
+        } finally {
+            setIsCreatingCategory(false);
+        }
+    };
+
+    const handleDeleteCategory = async (categoryName) => {
+        if (!confirm(`Är du säker på att du vill ta bort kategorin "${categoryName}"?`)) {
+            return;
+        }
+        
+        try {
+            await axios.delete(`${API_URL}/categories/${categoryName}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            await fetchCategories();
+        } catch (error) {
+            console.error("Failed to delete category", error);
+            alert("Kunde inte ta bort kategori");
+        }
+    };
+
     const handleCreate = async () => {
         setIsCreating(true);
         setCreateSuccess(false);
@@ -60,6 +124,10 @@ function AdminPage({ token, login }) {
                     return acc;
                 }, {})
             ));
+            if (category) formData.append("category", category);
+            if (color) formData.append("color", color);
+            if (gsm) formData.append("gsm", gsm);
+            if (ageGroup) formData.append("age_group", ageGroup);
             for (let file of imageFiles) {
                 formData.append("images", file);
             }
@@ -75,6 +143,10 @@ function AdminPage({ token, login }) {
             setPrice("");
             setSizes([{ size: '', quantity: 0 }]);
             setImageFiles([]);
+            setCategory("");
+            setColor("");
+            setGsm("");
+            setAgeGroup("");
             await fetchProducts();
             
             // Clear success message after 2 seconds
@@ -108,6 +180,10 @@ function AdminPage({ token, login }) {
             name: product.name,
             price: product.price,
             sizes: parsedSizes,
+            category: product.category || "",
+            color: product.color || "",
+            gsm: product.gsm || "",
+            age_group: product.age_group || "",
         });
     };
 
@@ -144,6 +220,10 @@ function AdminPage({ token, login }) {
             formData.append("name", editForm.name);
             formData.append("price", editForm.price);
             formData.append("sizes", JSON.stringify(sizesObj));
+            if (editForm.category) formData.append("category", editForm.category);
+            if (editForm.color) formData.append("color", editForm.color);
+            if (editForm.gsm) formData.append("gsm", editForm.gsm);
+            if (editForm.age_group) formData.append("age_group", editForm.age_group);
             for (let file of editImageFiles) {
                 formData.append("images", file);
             }
@@ -238,6 +318,76 @@ function AdminPage({ token, login }) {
         <div className="p-4">
             <h2 className="text-lg font-semibold mb-4">Admin Panel</h2>
 
+            {/* Category Management */}
+            <div className="mb-8 border-b pb-6">
+                <h3 className="font-semibold mb-4 text-xl">Kategorihantering</h3>
+                
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Kategori Namn</label>
+                    <input
+                        type="text"
+                        placeholder="t.ex. judo gi"
+                        value={categoryName}
+                        onChange={(e) => setCategoryName(e.target.value)}
+                        className="border p-2 rounded w-64 mr-2"
+                    />
+                </div>
+                
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Kategori Bild</label>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setCategoryImage(e.target.files[0] || null)}
+                        className="border p-1"
+                    />
+                    {categoryImage && (
+                        <div className="mt-2 text-sm text-gray-600">
+                            Vald bild: {categoryImage.name}
+                        </div>
+                    )}
+                </div>
+                
+                <button
+                    onClick={handleCreateCategory}
+                    disabled={isCreatingCategory}
+                    className={`px-4 py-2 ${isCreatingCategory ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600'} text-white rounded`}
+                >
+                    {isCreatingCategory ? 'Laddar...' : 'Skapa/Uppdatera Kategori'}
+                </button>
+
+                {/* Existing Categories */}
+                <div className="mt-6">
+                    <h4 className="font-semibold mb-2">Befintliga kategorier</h4>
+                    {categories.length === 0 ? (
+                        <p className="text-gray-500 text-sm">Inga kategorier ännu</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {categories.map((cat) => (
+                                <div key={cat.id} className="flex items-center gap-4 border p-3 rounded">
+                                    <div className="flex-1">
+                                        <p className="font-medium">{cat.name}</p>
+                                        {cat.image_filename && (
+                                            <img
+                                                src={`${API_URL}/uploads/${cat.image_filename}`}
+                                                alt={cat.name}
+                                                className="w-32 h-32 object-cover mt-2 rounded"
+                                            />
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeleteCategory(cat.name)}
+                                        className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+                                    >
+                                        Ta bort
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Add New Product */}
             <div className="mb-6">
                 <h3 className="font-semibold mb-2">Lägg till ny produkt</h3>
@@ -257,6 +407,42 @@ function AdminPage({ token, login }) {
                     placeholder="Pris"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
+                    className="border p-1 mr-2"
+                />
+
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategori (t.ex. "judo gi")</label>
+                <input
+                    type="text"
+                    placeholder="Kategori"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="border p-1 mr-2"
+                />
+
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Färg (t.ex. "blue", "white")</label>
+                <input
+                    type="text"
+                    placeholder="Färg"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="border p-1 mr-2"
+                />
+
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">GSM (t.ex. "550", "750")</label>
+                <input
+                    type="text"
+                    placeholder="GSM"
+                    value={gsm}
+                    onChange={(e) => setGsm(e.target.value)}
+                    className="border p-1 mr-2"
+                />
+
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Åldersgrupp (t.ex. "children", "adult")</label>
+                <input
+                    type="text"
+                    placeholder="Åldersgrupp"
+                    value={ageGroup}
+                    onChange={(e) => setAgeGroup(e.target.value)}
                     className="border p-1 mr-2"
                 />
 
@@ -354,6 +540,46 @@ function AdminPage({ token, login }) {
                                     onChange={(e) => setEditForm((prev) => ({ ...prev, price: e.target.value }))}
                                     className="border p-1 mr-2"
                                 />
+                                <div className="mt-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                                    <input
+                                        name="category"
+                                        value={editForm.category}
+                                        onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))}
+                                        className="border p-1 mr-2"
+                                        placeholder="Kategori"
+                                    />
+                                </div>
+                                <div className="mt-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Färg</label>
+                                    <input
+                                        name="color"
+                                        value={editForm.color}
+                                        onChange={(e) => setEditForm((prev) => ({ ...prev, color: e.target.value }))}
+                                        className="border p-1 mr-2"
+                                        placeholder="Färg"
+                                    />
+                                </div>
+                                <div className="mt-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">GSM</label>
+                                    <input
+                                        name="gsm"
+                                        value={editForm.gsm}
+                                        onChange={(e) => setEditForm((prev) => ({ ...prev, gsm: e.target.value }))}
+                                        className="border p-1 mr-2"
+                                        placeholder="GSM"
+                                    />
+                                </div>
+                                <div className="mt-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Åldersgrupp</label>
+                                    <input
+                                        name="age_group"
+                                        value={editForm.age_group}
+                                        onChange={(e) => setEditForm((prev) => ({ ...prev, age_group: e.target.value }))}
+                                        className="border p-1 mr-2"
+                                        placeholder="Åldersgrupp"
+                                    />
+                                </div>
                                 {editForm.sizes.map((entry, index) => (
                                     <div key={index} className="flex gap-2 items-center mt-1">
                                         <input
