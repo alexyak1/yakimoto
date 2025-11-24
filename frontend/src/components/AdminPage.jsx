@@ -10,10 +10,14 @@ function AdminPage({ token, login }) {
     const [price, setPrice] = useState(0);
     const [sizes, setSizes] = useState([{ size: '', quantity: 0 }]);
     const [imageFiles, setImageFiles] = useState([]);
+    const [isCreating, setIsCreating] = useState(false);
+    const [createSuccess, setCreateSuccess] = useState(false);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
     const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }] });
     const [editImageFiles, setEditImageFiles] = useState([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadSuccess, setUploadSuccess] = useState(false);
 
     useEffect(() => {
         fetchProducts();
@@ -42,30 +46,47 @@ function AdminPage({ token, login }) {
     };
 
     const handleCreate = async () => {
-        const formData = new FormData();
-        formData.append("name", name);
-        formData.append("price", price);
+        setIsCreating(true);
+        setCreateSuccess(false);
+        
+        try {
+            const formData = new FormData();
+            formData.append("name", name);
+            formData.append("price", price);
 
-        formData.append("sizes", JSON.stringify(
-            sizes.reduce((acc, cur) => {
-                if (cur.size.trim()) acc[cur.size] = cur.quantity;
-                return acc;
-            }, {})
-        ));
-        for (let file of imageFiles) {
-            formData.append("images", file);
+            formData.append("sizes", JSON.stringify(
+                sizes.reduce((acc, cur) => {
+                    if (cur.size.trim()) acc[cur.size] = cur.quantity;
+                    return acc;
+                }, {})
+            ));
+            for (let file of imageFiles) {
+                formData.append("images", file);
+            }
+
+            await axios.post(`${API_URL}/products`, formData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            setCreateSuccess(true);
+            
+            // reset form
+            setName("");
+            setPrice("");
+            setSizes([{ size: '', quantity: 0 }]);
+            setImageFiles([]);
+            await fetchProducts();
+            
+            // Clear success message after 2 seconds
+            setTimeout(() => {
+                setCreateSuccess(false);
+            }, 2000);
+        } catch (error) {
+            console.error("Failed to create product", error);
+            alert("Kunde inte skapa produkt");
+        } finally {
+            setIsCreating(false);
         }
-
-        await axios.post(`${API_URL}/products`, formData, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-
-        // reset form
-        setName("");
-        setPrice("");
-        setSizes([{ size: '', quantity: 0 }]);
-        setImageFiles([]);
-        fetchProducts();
     };
 
 
@@ -110,28 +131,45 @@ function AdminPage({ token, login }) {
     };
 
     const submitEdit = async (id) => {
-        const sizesObj = editForm.sizes.reduce((acc, cur) => {
-            if (cur.size.trim()) acc[cur.size] = cur.quantity;
-            return acc;
-        }, {});
+        setIsUploading(true);
+        setUploadSuccess(false);
+        
+        try {
+            const sizesObj = editForm.sizes.reduce((acc, cur) => {
+                if (cur.size.trim()) acc[cur.size] = cur.quantity;
+                return acc;
+            }, {});
 
-        const formData = new FormData();
-        formData.append("name", editForm.name);
-        formData.append("price", editForm.price);
-        formData.append("sizes", JSON.stringify(sizesObj));
-        for (let file of editImageFiles) {
-            formData.append("images", file);
+            const formData = new FormData();
+            formData.append("name", editForm.name);
+            formData.append("price", editForm.price);
+            formData.append("sizes", JSON.stringify(sizesObj));
+            for (let file of editImageFiles) {
+                formData.append("images", file);
+            }
+
+            await axios.put(`${API_URL}/products/${id}`, formData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            setUploadSuccess(true);
+            setEditImageFiles([]);
+            await fetchProducts();
+            
+            // Clear success message after 3 seconds
+            setTimeout(() => {
+                setUploadSuccess(false);
+                setEditProductId(null);
+            }, 2000);
+        } catch (error) {
+            console.error("Failed to update product", error);
+            alert("Kunde inte spara produkt");
+            setIsUploading(false);
+        } finally {
+            setIsUploading(false);
         }
-
-        await axios.put(`${API_URL}/products/${id}`, formData, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        });
-
-        setEditProductId(null);
-        setEditImageFiles([]);
-        fetchProducts();
     };
 
     const updateEditSize = (index, field, value) => {
@@ -260,16 +298,41 @@ function AdminPage({ token, login }) {
                 </div>
 
                 <div className="mt-2">
-                    <label className="block text-sm font-medium text-gray-700">Bild</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bild</label>
                     <input
                         type="file"
                         multiple
-                        onChange={(e) => setImageFiles(Array.from(e.target.files))}
+                        onChange={(e) => {
+                            setImageFiles(Array.from(e.target.files));
+                            setCreateSuccess(false);
+                        }}
                         className="border p-1 mr-2"
+                        disabled={isCreating}
                     />
+                    {imageFiles.length > 0 && (
+                        <div className="mt-2 text-sm text-gray-600">
+                            {imageFiles.length} bild(er) valda: {imageFiles.map(f => f.name).join(", ")}
+                        </div>
+                    )}
+                    {isCreating && (
+                        <div className="mt-2 text-sm text-blue-600 flex items-center gap-2">
+                            <span className="animate-spin">⏳</span>
+                            Laddar upp bilder...
+                        </div>
+                    )}
+                    {createSuccess && (
+                        <div className="mt-2 text-sm text-green-600 flex items-center gap-2">
+                            <span>✓</span>
+                            Produkt skapad och bilder uppladdade!
+                        </div>
+                    )}
                 </div>
-                <button onClick={handleCreate} className="bg-green-600 text-white px-3 py-1 mt-2">
-                    Skapa produkt
+                <button 
+                    onClick={handleCreate} 
+                    disabled={isCreating}
+                    className={`px-3 py-1 mt-2 ${isCreating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600'} text-white`}
+                >
+                    {isCreating ? 'Laddar...' : 'Skapa produkt'}
                 </button>
             </div>
 
@@ -333,17 +396,54 @@ function AdminPage({ token, login }) {
                                     </div>
                                 )}
                                 <div className="mt-2">
-                                    <label className="block text-sm font-medium text-gray-700">Lägg till nya bilder</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Lägg till nya bilder</label>
                                     <input
                                         type="file"
                                         multiple
-                                        onChange={(e) => setEditImageFiles(Array.from(e.target.files))}
+                                        onChange={(e) => {
+                                            setEditImageFiles(Array.from(e.target.files));
+                                            setUploadSuccess(false);
+                                        }}
                                         className="border p-1"
+                                        disabled={isUploading}
                                     />
+                                    {editImageFiles.length > 0 && (
+                                        <div className="mt-2 text-sm text-gray-600">
+                                            {editImageFiles.length} bild(er) valda: {editImageFiles.map(f => f.name).join(", ")}
+                                        </div>
+                                    )}
+                                    {isUploading && (
+                                        <div className="mt-2 text-sm text-blue-600 flex items-center gap-2">
+                                            <span className="animate-spin">⏳</span>
+                                            Laddar upp bilder...
+                                        </div>
+                                    )}
+                                    {uploadSuccess && (
+                                        <div className="mt-2 text-sm text-green-600 flex items-center gap-2">
+                                            <span>✓</span>
+                                            Bilder uppladdade!
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="mt-2">
-                                    <button onClick={() => submitEdit(product.id)} className="bg-blue-600 text-white px-2 py-1 mr-1">Spara</button>
-                                    <button onClick={() => setEditProductId(null)} className="bg-gray-400 text-white px-2 py-1">Avbryt</button>
+                                    <button 
+                                        onClick={() => submitEdit(product.id)} 
+                                        disabled={isUploading}
+                                        className={`px-2 py-1 mr-1 ${isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600'} text-white`}
+                                    >
+                                        {isUploading ? 'Laddar...' : 'Spara'}
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            setEditProductId(null);
+                                            setEditImageFiles([]);
+                                            setUploadSuccess(false);
+                                        }} 
+                                        disabled={isUploading}
+                                        className="bg-gray-400 text-white px-2 py-1"
+                                    >
+                                        Avbryt
+                                    </button>
                                 </div>
                             </div>
                         ) : (
