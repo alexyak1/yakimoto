@@ -116,9 +116,16 @@ def setup_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product_id INTEGER,
             filename TEXT,
+            is_main INTEGER DEFAULT 0,
             FOREIGN KEY(product_id) REFERENCES products(id)
         )
     """)
+    
+    # Add is_main column if it doesn't exist (for existing databases)
+    try:
+        conn.execute("ALTER TABLE product_images ADD COLUMN is_main INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS product_sizes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,7 +145,34 @@ def setup_database():
     conn.commit()
     conn.close()
 
+def migrate_existing_products():
+    """Set first image as main for existing products that don't have a main image"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get all products
+    cursor.execute("SELECT id FROM products")
+    products = cursor.fetchall()
+    
+    for product in products:
+        product_id = product["id"]
+        # Check if product has any main image
+        cursor.execute("SELECT COUNT(*) as count FROM product_images WHERE product_id = ? AND is_main = 1", (product_id,))
+        has_main = cursor.fetchone()["count"] > 0
+        
+        if not has_main:
+            # Get first image for this product
+            cursor.execute("SELECT id FROM product_images WHERE product_id = ? ORDER BY id ASC LIMIT 1", (product_id,))
+            first_image = cursor.fetchone()
+            if first_image:
+                # Set it as main
+                cursor.execute("UPDATE product_images SET is_main = 1 WHERE id = ?", (first_image["id"],))
+    
+    conn.commit()
+    conn.close()
+
 setup_database()
+migrate_existing_products()
 
 def verify_token(authorization: str = Header(...)):
     print("AUTH HEADER:", authorization)
@@ -160,6 +194,17 @@ class Product(BaseModel):
     image: str
     quantity: int
 
+def get_product_images(cursor, product_id):
+    """Helper function to fetch product images sorted by is_main (main first)"""
+    cursor.execute(
+        "SELECT filename, is_main FROM product_images WHERE product_id = ? ORDER BY is_main DESC, id ASC",
+        (product_id,)
+    )
+    image_rows = cursor.fetchall()
+    images = [img["filename"] for img in image_rows]
+    main_image = next((img["filename"] for img in image_rows if img["is_main"]), images[0] if images else None)
+    return images, main_image
+
 @app.get("/products")
 def read_products():
     conn = get_db()
@@ -174,9 +219,9 @@ def read_products():
         product_dict = dict(product)
 
         # Fetch images for each product
-        cursor.execute("SELECT filename FROM product_images WHERE product_id = ?", (product["id"],))
-        image_rows = cursor.fetchall()
-        product_dict["images"] = [img["filename"] for img in image_rows]
+        images, main_image = get_product_images(cursor, product["id"])
+        product_dict["images"] = images
+        product_dict["main_image"] = main_image
 
         result.append(product_dict)
 
@@ -198,9 +243,9 @@ def get_grouped_products(category: str):
         product_dict = dict(product)
 
         # Fetch images for each product
-        cursor.execute("SELECT filename FROM product_images WHERE product_id = ?", (product["id"],))
-        image_rows = cursor.fetchall()
-        product_dict["images"] = [img["filename"] for img in image_rows]
+        images, main_image = get_product_images(cursor, product["id"])
+        product_dict["images"] = images
+        product_dict["main_image"] = main_image
 
         result.append(product_dict)
 
@@ -222,9 +267,9 @@ def get_products_by_category(category: str):
         product_dict = dict(product)
 
         # Fetch images for each product
-        cursor.execute("SELECT filename FROM product_images WHERE product_id = ?", (product["id"],))
-        image_rows = cursor.fetchall()
-        product_dict["images"] = [img["filename"] for img in image_rows]
+        images, main_image = get_product_images(cursor, product["id"])
+        product_dict["images"] = images
+        product_dict["main_image"] = main_image
 
         result.append(product_dict)
 
@@ -293,6 +338,49 @@ def create_category(
     conn.close()
     return {"message": "Category created/updated", "name": name}
 
+@app.put("/categories/{category_id}")
+def update_category(
+    category_id: int,
+    name: str = Form(...),
+    image: Optional[UploadFile] = File(None),
+    auth=Depends(verify_token),
+):
+    """Update a category by ID"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Check if category exists
+    cursor.execute("SELECT * FROM categories WHERE id = ?", (category_id,))
+    existing = cursor.fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    # Handle image update
+    image_filename = existing["image_filename"]  # Keep existing image by default
+    if image and image.filename:
+        # Delete old image if it exists
+        if existing["image_filename"]:
+            old_image_path = os.path.join(UPLOAD_DIR, existing["image_filename"])
+            if os.path.exists(old_image_path):
+                os.remove(old_image_path)
+        
+        # Save new image
+        image_filename = f"{uuid.uuid4()}_{image.filename}"
+        image_path = os.path.join(UPLOAD_DIR, image_filename)
+        with open(image_path, "wb") as buffer:
+            buffer.write(image.file.read())
+    
+    # Update category
+    cursor.execute(
+        "UPDATE categories SET name = ?, image_filename = ? WHERE id = ?",
+        (name, image_filename, category_id)
+    )
+    
+    conn.commit()
+    conn.close()
+    return {"message": "Category updated", "id": category_id, "name": name}
+
 @app.delete("/categories/{category_name}")
 def delete_category(category_name: str, auth=Depends(verify_token)):
     """Delete a category"""
@@ -325,13 +413,12 @@ def get_product(product_id: int):
         raise HTTPException(status_code=404, detail="Product not found")
 
     # Fetch related images
-    images = cursor.execute(
-        "SELECT filename FROM product_images WHERE product_id = ?", (product_id,)
-    ).fetchall()
+    images, main_image = get_product_images(cursor, product_id)
     conn.close()
 
     product_dict = dict(product)
-    product_dict["images"] = [row["filename"] for row in images]
+    product_dict["images"] = images
+    product_dict["main_image"] = main_image
 
     return product_dict
 
@@ -407,17 +494,18 @@ def create_product(
     )
     product_id = cursor.lastrowid
 
-    # Save images
-    for image in images:
+    # Save images - set first image as main
+    for idx, image in enumerate(images):
         filename = f"{uuid.uuid4()}_{image.filename}"
         image_path = os.path.join(UPLOAD_DIR, filename)
         with open(image_path, "wb") as buffer:
             buffer.write(image.file.read())
 
-        # Link image to product
+        # Link image to product - first image is main
+        is_main = 1 if idx == 0 else 0
         cursor.execute(
-            "INSERT INTO product_images (product_id, filename) VALUES (?, ?)",
-            (product_id, filename)
+            "INSERT INTO product_images (product_id, filename, is_main) VALUES (?, ?, ?)",
+            (product_id, filename, is_main)
         )
 
     conn.commit()
@@ -451,7 +539,11 @@ async def update_product(
     form = await request.form()
     if "images" in form:
         images = form.getlist("images")
-        for image in images:
+        # Check if product already has a main image
+        cursor.execute("SELECT COUNT(*) as count FROM product_images WHERE product_id = ? AND is_main = 1", (product_id,))
+        has_main = cursor.fetchone()["count"] > 0
+        
+        for idx, image in enumerate(images):
             # Check if it's actually a file upload (not just a string)
             if hasattr(image, 'filename') and image.filename:
                 filename = f"{uuid.uuid4()}_{image.filename}"
@@ -460,15 +552,52 @@ async def update_product(
                 with open(image_path, "wb") as buffer:
                     buffer.write(content)
 
-                # Link image to product
+                # Link image to product - set as main if no main exists and this is the first new image
+                is_main = 1 if (not has_main and idx == 0) else 0
                 cursor.execute(
-                    "INSERT INTO product_images (product_id, filename) VALUES (?, ?)",
-                    (product_id, filename)
+                    "INSERT INTO product_images (product_id, filename, is_main) VALUES (?, ?, ?)",
+                    (product_id, filename, is_main)
                 )
     
     conn.commit()
     conn.close()
     return {"message": "Product updated"}
+
+@app.post("/products/{product_id}/set-main-image")
+def set_main_image(
+    product_id: int,
+    filename: str = Form(...),
+    auth=Depends(verify_token),
+):
+    """Set which image is the main image for a product"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Verify the image belongs to this product
+    cursor.execute(
+        "SELECT id FROM product_images WHERE product_id = ? AND filename = ?",
+        (product_id, filename)
+    )
+    image = cursor.fetchone()
+    if not image:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Image not found for this product")
+    
+    # Unset all main images for this product
+    cursor.execute(
+        "UPDATE product_images SET is_main = 0 WHERE product_id = ?",
+        (product_id,)
+    )
+    
+    # Set the specified image as main
+    cursor.execute(
+        "UPDATE product_images SET is_main = 1 WHERE product_id = ? AND filename = ?",
+        (product_id, filename)
+    )
+    
+    conn.commit()
+    conn.close()
+    return {"message": "Main image updated", "filename": filename}
 
 @app.delete("/products/{product_id}")
 def delete_product(product_id: int, auth=Depends(verify_token)):

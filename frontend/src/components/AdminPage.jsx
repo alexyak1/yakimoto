@@ -26,6 +26,10 @@ function AdminPage({ token, login }) {
     const [categoryName, setCategoryName] = useState("");
     const [categoryImage, setCategoryImage] = useState(null);
     const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+    const [editCategoryId, setEditCategoryId] = useState(null);
+    const [editCategoryName, setEditCategoryName] = useState("");
+    const [editCategoryImage, setEditCategoryImage] = useState(null);
+    const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
 
     useEffect(() => {
         fetchProducts();
@@ -109,6 +113,49 @@ function AdminPage({ token, login }) {
         }
     };
 
+    const startEditCategory = (category) => {
+        setEditCategoryId(category.id);
+        setEditCategoryName(category.name);
+        setEditCategoryImage(null);
+    };
+
+    const cancelEditCategory = () => {
+        setEditCategoryId(null);
+        setEditCategoryName("");
+        setEditCategoryImage(null);
+    };
+
+    const handleUpdateCategory = async (categoryId) => {
+        if (!editCategoryName.trim()) {
+            alert("Kategori namn krävs");
+            return;
+        }
+        
+        setIsUpdatingCategory(true);
+        try {
+            const formData = new FormData();
+            formData.append("name", editCategoryName);
+            if (editCategoryImage) {
+                formData.append("image", editCategoryImage);
+            }
+
+            await axios.put(`${API_URL}/categories/${categoryId}`, formData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            setEditCategoryId(null);
+            setEditCategoryName("");
+            setEditCategoryImage(null);
+            await fetchCategories();
+            alert("Kategori uppdaterad!");
+        } catch (error) {
+            console.error("Failed to update category", error);
+            alert("Kunde inte uppdatera kategori");
+        } finally {
+            setIsUpdatingCategory(false);
+        }
+    };
+
     const handleCreate = async () => {
         setIsCreating(true);
         setCreateSuccess(false);
@@ -167,6 +214,22 @@ function AdminPage({ token, login }) {
             headers: { Authorization: `Bearer ${token}` },
         });
         fetchProducts();
+    };
+
+    const handleSetMainImage = async (productId, filename) => {
+        try {
+            const formData = new FormData();
+            formData.append("filename", filename);
+            
+            await axios.post(`${API_URL}/products/${productId}/set-main-image`, formData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            await fetchProducts();
+        } catch (error) {
+            console.error("Failed to set main image", error);
+            alert("Kunde inte uppdatera huvudbild");
+        }
     };
 
     const startEdit = (product) => {
@@ -364,23 +427,87 @@ function AdminPage({ token, login }) {
                     ) : (
                         <div className="space-y-2">
                             {categories.map((cat) => (
-                                <div key={cat.id} className="flex items-center gap-4 border p-3 rounded">
-                                    <div className="flex-1">
-                                        <p className="font-medium">{cat.name}</p>
-                                        {cat.image_filename && (
-                                            <img
-                                                src={`${API_URL}/uploads/${cat.image_filename}`}
-                                                alt={cat.name}
-                                                className="w-32 h-32 object-cover mt-2 rounded"
-                                            />
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={() => handleDeleteCategory(cat.name)}
-                                        className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                                    >
-                                        Ta bort
-                                    </button>
+                                <div key={cat.id} className="border p-3 rounded">
+                                    {editCategoryId === cat.id ? (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Kategori Namn</label>
+                                                <input
+                                                    type="text"
+                                                    value={editCategoryName}
+                                                    onChange={(e) => setEditCategoryName(e.target.value)}
+                                                    className="border p-2 rounded w-full"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Kategori Bild</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => setEditCategoryImage(e.target.files[0] || null)}
+                                                    className="border p-1"
+                                                />
+                                                {editCategoryImage && (
+                                                    <div className="mt-2 text-sm text-gray-600">
+                                                        Ny bild vald: {editCategoryImage.name}
+                                                    </div>
+                                                )}
+                                                {cat.image_filename && !editCategoryImage && (
+                                                    <div className="mt-2">
+                                                        <p className="text-sm text-gray-600 mb-1">Nuvarande bild:</p>
+                                                        <img
+                                                            src={`${API_URL}/uploads/${cat.image_filename}`}
+                                                            alt={cat.name}
+                                                            className="w-32 h-32 object-cover rounded"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleUpdateCategory(cat.id)}
+                                                    disabled={isUpdatingCategory}
+                                                    className={`px-4 py-2 ${isUpdatingCategory ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600'} text-white rounded text-sm`}
+                                                >
+                                                    {isUpdatingCategory ? 'Sparar...' : 'Spara'}
+                                                </button>
+                                                <button
+                                                    onClick={cancelEditCategory}
+                                                    disabled={isUpdatingCategory}
+                                                    className="px-4 py-2 bg-gray-400 text-white rounded text-sm"
+                                                >
+                                                    Avbryt
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex-1">
+                                                <p className="font-medium">{cat.name}</p>
+                                                {cat.image_filename && (
+                                                    <img
+                                                        src={`${API_URL}/uploads/${cat.image_filename}`}
+                                                        alt={cat.name}
+                                                        className="w-32 h-32 object-cover mt-2 rounded"
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => startEditCategory(cat)}
+                                                    className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
+                                                >
+                                                    Redigera
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteCategory(cat.name)}
+                                                    className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+                                                >
+                                                    Ta bort
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -609,15 +736,30 @@ function AdminPage({ token, login }) {
                                     + Lägg till storlek
                                 </button>
                                 {product.images && product.images.length > 0 && (
-                                    <div className="mt-2 flex gap-2 flex-wrap">
-                                        {product.images.map((img, idx) => (
-                                            <img
-                                                key={idx}
-                                                src={`${API_URL}/uploads/${img}`}
-                                                alt="Produktbild"
-                                                className="w-20 h-20 object-cover border"
-                                            />
-                                        ))}
+                                    <div className="mt-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Bilder (klicka för att välja huvudbild)</label>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {product.images.map((img, idx) => {
+                                                const isMain = product.main_image === img || (idx === 0 && !product.main_image);
+                                                return (
+                                                    <div key={idx} className="relative">
+                                                        <img
+                                                            src={`${API_URL}/uploads/${img}`}
+                                                            alt="Produktbild"
+                                                            onClick={() => handleSetMainImage(product.id, img)}
+                                                            className={`w-20 h-20 object-cover border-2 cursor-pointer hover:opacity-80 transition ${
+                                                                isMain ? 'border-blue-600 border-4' : 'border-gray-300'
+                                                            }`}
+                                                        />
+                                                        {isMain && (
+                                                            <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs px-1 rounded-bl">
+                                                                Huvud
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )}
                                 <div className="mt-2">
