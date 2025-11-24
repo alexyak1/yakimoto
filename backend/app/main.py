@@ -5,7 +5,7 @@ import uuid
 import sqlite3
 import jwt
 import shutil
-from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends, Body
+from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends, Body, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -260,18 +260,42 @@ def create_product(
     return {"message": "Product created", "id": product_id}
 
 @app.put("/products/{product_id}")
-def update_product(
+async def update_product(
     product_id: int,
+    request: Request,
     name: str = Form(...),
     price: float = Form(...),
     sizes: str = Form(...),
     auth=Depends(verify_token),
 ):
     conn = get_db()
-    conn.execute(
+    cursor = conn.cursor()
+    
+    # Update product basic info
+    cursor.execute(
         "UPDATE products SET name = ?, price = ?, sizes = ? WHERE id = ?",
         (name, price, sizes, product_id),
     )
+    
+    # Handle new images if provided - parse form data manually to handle optional files
+    form = await request.form()
+    if "images" in form:
+        images = form.getlist("images")
+        for image in images:
+            # Check if it's actually a file upload (not just a string)
+            if hasattr(image, 'filename') and image.filename:
+                filename = f"{uuid.uuid4()}_{image.filename}"
+                image_path = os.path.join(UPLOAD_DIR, filename)
+                content = await image.read()
+                with open(image_path, "wb") as buffer:
+                    buffer.write(content)
+
+                # Link image to product
+                cursor.execute(
+                    "INSERT INTO product_images (product_id, filename) VALUES (?, ?)",
+                    (product_id, filename)
+                )
+    
     conn.commit()
     conn.close()
     return {"message": "Product updated"}

@@ -158,11 +158,10 @@ function AdminPage({ token, login }) {
             setEditImageFiles([]);
             await fetchProducts();
             
-            // Clear success message after 3 seconds
+            // Clear success message after 3 seconds, but keep form open for more uploads
             setTimeout(() => {
                 setUploadSuccess(false);
-                setEditProductId(null);
-            }, 2000);
+            }, 3000);
         } catch (error) {
             console.error("Failed to update product", error);
             alert("Kunde inte spara produkt");
@@ -401,15 +400,39 @@ function AdminPage({ token, login }) {
                                         type="file"
                                         multiple
                                         onChange={(e) => {
-                                            setEditImageFiles(Array.from(e.target.files));
+                                            const newFiles = Array.from(e.target.files);
+                                            setEditImageFiles(prev => [...prev, ...newFiles]);
                                             setUploadSuccess(false);
+                                            // Reset input to allow selecting same file again
+                                            e.target.value = '';
                                         }}
                                         className="border p-1"
                                         disabled={isUploading}
                                     />
                                     {editImageFiles.length > 0 && (
-                                        <div className="mt-2 text-sm text-gray-600">
-                                            {editImageFiles.length} bild(er) valda: {editImageFiles.map(f => f.name).join(", ")}
+                                        <div className="mt-2">
+                                            <div className="text-sm text-gray-600 mb-2">
+                                                {editImageFiles.length} bild(er) valda:
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {editImageFiles.map((file, index) => (
+                                                    <div key={index} className="relative border rounded p-2 bg-gray-50">
+                                                        <div className="text-xs text-gray-700 max-w-[150px] truncate">
+                                                            {file.name}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditImageFiles(prev => prev.filter((_, i) => i !== index));
+                                                            }}
+                                                            className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 rounded-full hover:bg-red-600"
+                                                            disabled={isUploading}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                     {isUploading && (
