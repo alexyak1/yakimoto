@@ -16,7 +16,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import stripe
-from PIL import Image
+from PIL import Image, ImageOps
 import io
 
 load_dotenv()
@@ -75,9 +75,21 @@ def get_db():
     return conn
 
 # Image optimization functions
+def apply_exif_orientation(img: Image.Image) -> Image.Image:
+    """Apply EXIF orientation to image if present"""
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        # If EXIF data is missing or invalid, just return the image as-is
+        pass
+    return img
+
 def optimize_image(image_bytes: bytes, max_size: tuple = (1920, 1920), quality: int = 85) -> bytes:
     """Resize and compress an image"""
     img = Image.open(io.BytesIO(image_bytes))
+    
+    # Apply EXIF orientation first
+    img = apply_exif_orientation(img)
     
     # Convert RGBA to RGB if necessary (for JPEG)
     if img.mode in ('RGBA', 'LA', 'P'):
@@ -92,14 +104,17 @@ def optimize_image(image_bytes: bytes, max_size: tuple = (1920, 1920), quality: 
     # Resize if image is larger than max_size
     img.thumbnail(max_size, Image.Resampling.LANCZOS)
     
-    # Save to bytes with compression
+    # Save to bytes with compression (exclude EXIF to avoid re-rotation)
     output = io.BytesIO()
-    img.save(output, format='JPEG', quality=quality, optimize=True)
+    img.save(output, format='JPEG', quality=quality, optimize=True, exif=b'')
     return output.getvalue()
 
 def create_thumbnail(image_bytes: bytes, size: tuple = (400, 400), quality: int = 80) -> bytes:
     """Create a thumbnail version of an image"""
     img = Image.open(io.BytesIO(image_bytes))
+    
+    # Apply EXIF orientation first
+    img = apply_exif_orientation(img)
     
     # Convert RGBA to RGB if necessary
     if img.mode in ('RGBA', 'LA', 'P'):
@@ -114,9 +129,9 @@ def create_thumbnail(image_bytes: bytes, size: tuple = (400, 400), quality: int 
     # Create thumbnail
     img.thumbnail(size, Image.Resampling.LANCZOS)
     
-    # Save to bytes
+    # Save to bytes (exclude EXIF to avoid re-rotation)
     output = io.BytesIO()
-    img.save(output, format='JPEG', quality=quality, optimize=True)
+    img.save(output, format='JPEG', quality=quality, optimize=True, exif=b'')
     return output.getvalue()
 
 # Setup DB schema
@@ -754,6 +769,32 @@ def get_thumbnail_status(auth=Depends(verify_token)):
     conn.close()
     
     return status
+
+@app.post("/admin/delete-thumbnails")
+def delete_all_thumbnails(auth=Depends(verify_token)):
+    """Delete all thumbnails (useful for regenerating with correct orientation)"""
+    deleted = 0
+    errors = []
+    
+    try:
+        # Get all thumbnail files
+        if os.path.exists(THUMBNAIL_DIR):
+            for filename in os.listdir(THUMBNAIL_DIR):
+                if filename.endswith('_thumb.jpg'):
+                    try:
+                        thumbnail_path = os.path.join(THUMBNAIL_DIR, filename)
+                        os.remove(thumbnail_path)
+                        deleted += 1
+                    except Exception as e:
+                        errors.append(f"Error deleting {filename}: {str(e)}")
+    except Exception as e:
+        errors.append(f"Error accessing thumbnails directory: {str(e)}")
+    
+    return {
+        "message": "Thumbnail deletion completed",
+        "deleted": deleted,
+        "errors": errors
+    }
 
 @app.post("/admin/generate-thumbnails")
 def generate_thumbnails_for_existing_images(auth=Depends(verify_token)):

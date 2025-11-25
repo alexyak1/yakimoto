@@ -391,7 +391,7 @@ function AdminPage({ token, login }) {
                 <p className="text-sm text-gray-600 mb-3">
                     Generera miniatyrer för alla befintliga bilder. Detta förbättrar laddningstiderna på produktsidor.
                 </p>
-                <div className="flex gap-2 mb-3">
+                <div className="flex flex-wrap gap-2 mb-3">
                     <button
                         onClick={async () => {
                             setIsGeneratingThumbnails(true);
@@ -433,6 +433,42 @@ function AdminPage({ token, login }) {
                         className={`px-4 py-2 ${isGeneratingThumbnails ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded`}
                     >
                         Kontrollera miniatyrstatus
+                    </button>
+                    <button
+                        onClick={async () => {
+                            if (!confirm('Är du säker på att du vill ta bort alla miniatyrer? Detta gör att du kan generera nya med korrekt orientering.')) {
+                                return;
+                            }
+                            setIsGeneratingThumbnails(true);
+                            setThumbnailResult(null);
+                            try {
+                                const res = await axios.post(
+                                    `${API_URL}/admin/delete-thumbnails`,
+                                    {},
+                                    {
+                                        headers: {
+                                            Authorization: `Bearer ${token}`
+                                        }
+                                    }
+                                );
+                                setThumbnailResult({
+                                    message: `Raderade ${res.data.deleted} miniatyrer`,
+                                    processed: res.data.deleted,
+                                    errors: res.data.errors || []
+                                });
+                            } catch (err) {
+                                setThumbnailResult({
+                                    message: "Fel uppstod vid radering",
+                                    errors: [err.response?.data?.detail || err.message || "Okänt fel"]
+                                });
+                            } finally {
+                                setIsGeneratingThumbnails(false);
+                            }
+                        }}
+                        disabled={isGeneratingThumbnails}
+                        className={`px-4 py-2 ${isGeneratingThumbnails ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white rounded`}
+                    >
+                        {isGeneratingThumbnails ? 'Raderar...' : 'Ta bort alla miniatyrer'}
                     </button>
                     <button
                         onClick={async () => {
