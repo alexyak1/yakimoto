@@ -32,6 +32,8 @@ function AdminPage({ token, login }) {
     const [editCategoryName, setEditCategoryName] = useState("");
     const [editCategoryImage, setEditCategoryImage] = useState(null);
     const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
+    const [isGeneratingThumbnails, setIsGeneratingThumbnails] = useState(false);
+    const [thumbnailResult, setThumbnailResult] = useState(null);
 
     useEffect(() => {
         fetchProducts();
@@ -382,6 +384,66 @@ function AdminPage({ token, login }) {
     return (
         <div className="p-4">
             <h2 className="text-lg font-semibold mb-4">Admin Panel</h2>
+
+            {/* Image Utilities */}
+            <div className="mb-6 p-4 border rounded bg-gray-50">
+                <h3 className="font-semibold mb-2">Bildverktyg</h3>
+                <p className="text-sm text-gray-600 mb-3">
+                    Generera miniatyrer för alla befintliga bilder. Detta förbättrar laddningstiderna på produktsidor.
+                </p>
+                <button
+                    onClick={async () => {
+                        setIsGeneratingThumbnails(true);
+                        setThumbnailResult(null);
+                        try {
+                            const res = await axios.post(
+                                `${API_URL}/admin/generate-thumbnails`,
+                                {},
+                                {
+                                    headers: {
+                                        Authorization: `Bearer ${token}`
+                                    }
+                                }
+                            );
+                            setThumbnailResult(res.data);
+                        } catch (err) {
+                            setThumbnailResult({
+                                message: "Fel uppstod",
+                                errors: [err.response?.data?.detail || err.message || "Okänt fel"]
+                            });
+                        } finally {
+                            setIsGeneratingThumbnails(false);
+                        }
+                    }}
+                    disabled={isGeneratingThumbnails}
+                    className={`px-4 py-2 ${isGeneratingThumbnails ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white rounded`}
+                >
+                    {isGeneratingThumbnails ? 'Genererar miniatyrer...' : 'Generera miniatyrer för alla bilder'}
+                </button>
+                {thumbnailResult && (
+                    <div className={`mt-3 p-3 rounded ${thumbnailResult.errors && thumbnailResult.errors.length > 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
+                        <p className="font-medium">{thumbnailResult.message}</p>
+                        <p className="text-sm mt-1">
+                            Bearbetade: {thumbnailResult.processed || 0} | 
+                            Hoppade över: {thumbnailResult.skipped || 0} | 
+                            Totalt: {thumbnailResult.total || 0}
+                        </p>
+                        {thumbnailResult.errors && thumbnailResult.errors.length > 0 && (
+                            <div className="mt-2">
+                                <p className="text-sm font-medium text-yellow-800">Fel:</p>
+                                <ul className="text-sm text-yellow-700 list-disc list-inside">
+                                    {thumbnailResult.errors.slice(0, 5).map((error, idx) => (
+                                        <li key={idx}>{error}</li>
+                                    ))}
+                                    {thumbnailResult.errors.length > 5 && (
+                                        <li>... och {thumbnailResult.errors.length - 5} fler fel</li>
+                                    )}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
             {/* Category Management */}
             <div className="mb-8 border-b pb-6">

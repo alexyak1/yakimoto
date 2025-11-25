@@ -705,6 +705,70 @@ def delete_product(product_id: int, auth=Depends(verify_token)):
     conn.close()
     return {"message": "Product deleted", "id": product_id}
 
+@app.post("/admin/generate-thumbnails")
+def generate_thumbnails_for_existing_images(auth=Depends(verify_token)):
+    """Generate thumbnails for all existing images that don't have thumbnails yet"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get all image filenames from database
+    cursor.execute("SELECT DISTINCT filename FROM product_images")
+    product_images = [row["filename"] for row in cursor.fetchall()]
+    
+    cursor.execute("SELECT DISTINCT image_filename FROM categories WHERE image_filename IS NOT NULL")
+    category_images = [row["image_filename"] for row in cursor.fetchall()]
+    
+    all_images = set(product_images + category_images)
+    
+    processed = 0
+    skipped = 0
+    errors = []
+    
+    for filename in all_images:
+        if not filename:
+            continue
+            
+        # Skip if thumbnail already exists
+        base_name = os.path.splitext(filename)[0]
+        thumbnail_filename = f"{base_name}_thumb.jpg"
+        thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_filename)
+        
+        if os.path.exists(thumbnail_path):
+            skipped += 1
+            continue
+        
+        # Check if original image exists
+        image_path = os.path.join(UPLOAD_DIR, filename)
+        if not os.path.exists(image_path):
+            errors.append(f"Original image not found: {filename}")
+            continue
+        
+        try:
+            # Read original image
+            with open(image_path, "rb") as f:
+                original_bytes = f.read()
+            
+            # Create thumbnail
+            thumbnail_bytes = create_thumbnail(original_bytes, size=(400, 400), quality=80)
+            
+            # Save thumbnail
+            with open(thumbnail_path, "wb") as f:
+                f.write(thumbnail_bytes)
+            
+            processed += 1
+        except Exception as e:
+            errors.append(f"Error processing {filename}: {str(e)}")
+    
+    conn.close()
+    
+    return {
+        "message": "Thumbnail generation completed",
+        "processed": processed,
+        "skipped": skipped,
+        "errors": errors,
+        "total": len(all_images)
+    }
+
 @app.post("/login")
 def login(password: str = Form(...)):
     if password != ADMIN_PASSWORD:
