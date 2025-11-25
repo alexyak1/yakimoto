@@ -36,7 +36,6 @@ export const CategoriesSection = () => {
 
   return (
     <div className="w-full mb-12 relative">
-      <h2 className="text-2xl font-bold mb-6 px-6">Kategorier</h2>
       <div className="relative">
         <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-0 overflow-x-auto sm:overflow-x-visible snap-x snap-mandatory sm:snap-none scrollbar-hide px-6 sm:px-0">
           {categories.map((category) => {
@@ -48,7 +47,7 @@ export const CategoriesSection = () => {
               <Link
                 key={category.id || category.name}
                 to={`/category/${category.name}`}
-                className="group relative overflow-hidden h-[600px] hover:opacity-95 transition-opacity duration-300 flex-shrink-0 w-[75vw] sm:w-auto snap-start sm:snap-none"
+                className="group relative overflow-hidden h-[400px] hover:opacity-95 transition-opacity duration-300 flex-shrink-0 w-[55vw] sm:w-auto snap-start sm:snap-none"
               >
                 <div className="w-full h-full overflow-hidden bg-gray-100">
                   {category.image_filename ? (
