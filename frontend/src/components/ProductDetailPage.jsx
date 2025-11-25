@@ -27,9 +27,40 @@ export default function ProductDetailPage({ onAddToCart }) {
                 
                 // Update page meta tags and canonical URL
                 const productUrl = `https://yakimoto.se/products/${id}`;
-                const productTitle = `${res.data.name} - Yakimoto Dojo | Judo Gi & Judo Dräkt`;
-                const productDescription = res.data.description || 
-                    `Köp ${res.data.name} från Yakimoto Dojo. Högkvalitativ judo utrustning för Alingsås Judoklubb. Snabb leverans och expertis inom judo-utrustning.`;
+                // Generate SEO-friendly title with Swedish keywords
+                const productName = res.data.name || '';
+                const category = res.data.category || '';
+                const ageGroup = res.data.age_group || '';
+                const color = res.data.color || '';
+                
+                // Build title with keywords
+                let titleKeywords = '';
+                if (category && category.toLowerCase().includes('gi')) {
+                    titleKeywords = 'Judogi Sverige';
+                } else if (category && category.toLowerCase().includes('dräkt')) {
+                    titleKeywords = ageGroup && ageGroup.toLowerCase().includes('barn') 
+                        ? 'Judo Dräkt Barn' 
+                        : 'Judo Dräkt Vuxen';
+                } else if (category && category.toLowerCase().includes('bälte')) {
+                    titleKeywords = 'Judo Bälte';
+                }
+                
+                const productTitle = `${productName} - ${titleKeywords || 'Judo Utrustning'} | Yakimoto Dojo`;
+                
+                // Generate SEO-friendly description
+                let productDescription = res.data.description;
+                if (!productDescription) {
+                    // Auto-generate description based on product attributes
+                    const parts = [];
+                    if (category) parts.push(category);
+                    if (color) parts.push(color);
+                    if (ageGroup) {
+                        parts.push(ageGroup === 'barn' || ageGroup === 'children' ? 'för barn' : 'för vuxna');
+                    }
+                    if (res.data.gsm) parts.push(`${res.data.gsm} GSM`);
+                    
+                    productDescription = `Köp ${productName}${parts.length > 0 ? ' - ' + parts.join(', ') : ''} från Yakimoto Dojo. Högkvalitativ judo utrustning. Snabb leverans från Sverige. Perfekt för träning och tävling.`;
+                }
                 
                 updatePageMeta(productTitle, productDescription, productUrl);
                 
@@ -127,6 +158,44 @@ export default function ProductDetailPage({ onAddToCart }) {
             <div>
                 <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
                 <p className="text-xl text-gray-800 mb-4">{product.price} kr</p>
+                
+                {/* Product Description */}
+                {product.description && (
+                    <div className="mb-6 prose prose-sm max-w-none">
+                        <div className="text-gray-700 whitespace-pre-line">
+                            {product.description}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Product Details */}
+                {(product.category || product.color || product.gsm || product.age_group) && (
+                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                        <h3 className="font-semibold mb-2">Produktdetaljer</h3>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                            {product.category && (
+                                <div>
+                                    <span className="font-medium">Kategori:</span> {product.category}
+                                </div>
+                            )}
+                            {product.color && (
+                                <div>
+                                    <span className="font-medium">Färg:</span> {product.color}
+                                </div>
+                            )}
+                            {product.gsm && (
+                                <div>
+                                    <span className="font-medium">GSM:</span> {product.gsm}
+                                </div>
+                            )}
+                            {product.age_group && (
+                                <div>
+                                    <span className="font-medium">Åldersgrupp:</span> {product.age_group}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <div className="mb-4">
                     <h3 className="font-semibold mb-1">Storlek</h3>

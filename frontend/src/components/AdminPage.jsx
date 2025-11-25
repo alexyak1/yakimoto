@@ -16,8 +16,9 @@ function AdminPage({ token, login }) {
     const [createSuccess, setCreateSuccess] = useState(false);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
-    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "" });
+    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "", description: "" });
     const [editImageFiles, setEditImageFiles] = useState([]);
+    const [description, setDescription] = useState("");
     const [isUploading, setIsUploading] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const [category, setCategory] = useState("");
@@ -179,6 +180,7 @@ function AdminPage({ token, login }) {
             if (color) formData.append("color", color);
             if (gsm) formData.append("gsm", gsm);
             if (ageGroup) formData.append("age_group", ageGroup);
+            if (description) formData.append("description", description);
             for (let file of imageFiles) {
                 formData.append("images", file);
             }
@@ -198,6 +200,7 @@ function AdminPage({ token, login }) {
             setColor("");
             setGsm("");
             setAgeGroup("");
+            setDescription("");
             await fetchProducts();
             
             // Clear success message after 2 seconds
@@ -251,6 +254,7 @@ function AdminPage({ token, login }) {
             color: product.color || "",
             gsm: product.gsm || "",
             age_group: product.age_group || "",
+            description: product.description || "",
         });
     };
 
@@ -291,6 +295,7 @@ function AdminPage({ token, login }) {
             if (editForm.color) formData.append("color", editForm.color);
             if (editForm.gsm) formData.append("gsm", editForm.gsm);
             if (editForm.age_group) formData.append("age_group", editForm.age_group);
+            if (editForm.description) formData.append("description", editForm.description);
             for (let file of editImageFiles) {
                 formData.append("images", file);
             }
@@ -730,6 +735,15 @@ function AdminPage({ token, login }) {
                     className="border p-1 mr-2"
                 />
 
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Beskrivning (för SEO - skriv på svenska)</label>
+                <textarea
+                    placeholder="Beskriv produktens egenskaper, vem den passar för, vilka tävlingar/klubbar den är lämplig för, tygtjocklek, storleksguide, tvättråd, etc."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="border p-2 w-full"
+                    rows="6"
+                />
+
                 <div className="space-y-2 mt-2">
                     {sizes.map((entry, index) => (
                         <div key={index} className="flex gap-2 items-center">
@@ -862,6 +876,17 @@ function AdminPage({ token, login }) {
                                         onChange={(e) => setEditForm((prev) => ({ ...prev, age_group: e.target.value }))}
                                         className="border p-1 mr-2"
                                         placeholder="Åldersgrupp"
+                                    />
+                                </div>
+                                <div className="mt-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivning (för SEO - skriv på svenska)</label>
+                                    <textarea
+                                        name="description"
+                                        value={editForm.description}
+                                        onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                                        className="border p-2 w-full"
+                                        placeholder="Beskriv produktens egenskaper, vem den passar för, vilka tävlingar/klubbar den är lämplig för, tygtjocklek, storleksguide, tvättråd, etc."
+                                        rows="6"
                                     />
                                 </div>
                                 {editForm.sizes.map((entry, index) => (

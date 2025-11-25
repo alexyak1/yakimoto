@@ -5,6 +5,7 @@ import uuid
 import sqlite3
 import jwt
 import shutil
+from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends, Body, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -152,7 +153,8 @@ def setup_database():
             category TEXT,
             color TEXT,
             gsm TEXT,
-            age_group TEXT
+            age_group TEXT,
+            description TEXT
         )
     """)
     
@@ -174,6 +176,11 @@ def setup_database():
     
     try:
         conn.execute("ALTER TABLE products ADD COLUMN age_group TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    
+    try:
+        conn.execute("ALTER TABLE products ADD COLUMN description TEXT")
     except sqlite3.OperationalError:
         pass  # Column already exists
     conn.execute("""
@@ -501,9 +508,17 @@ def get_sitemap():
     conn = get_db()
     cursor = conn.cursor()
     
+    # Get current date for lastmod
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    
     # Get all products
     cursor.execute("SELECT id, name FROM products")
     products = cursor.fetchall()
+    
+    # Get all categories
+    cursor.execute("SELECT name FROM categories")
+    categories = cursor.fetchall()
+    
     conn.close()
     
     # Generate sitemap XML
@@ -513,16 +528,26 @@ def get_sitemap():
     # Homepage
     sitemap += '  <url>\n'
     sitemap += '    <loc>https://yakimoto.se</loc>\n'
-    sitemap += '    <lastmod>2024-12-19</lastmod>\n'
+    sitemap += f'    <lastmod>{current_date}</lastmod>\n'
     sitemap += '    <changefreq>weekly</changefreq>\n'
     sitemap += '    <priority>1.0</priority>\n'
     sitemap += '  </url>\n'
+    
+    # Category pages
+    for category in categories:
+        category_name = category["name"]
+        sitemap += '  <url>\n'
+        sitemap += f'    <loc>https://yakimoto.se/category/{category_name}</loc>\n'
+        sitemap += f'    <lastmod>{current_date}</lastmod>\n'
+        sitemap += '    <changefreq>weekly</changefreq>\n'
+        sitemap += '    <priority>0.9</priority>\n'
+        sitemap += '  </url>\n'
     
     # Product pages
     for product in products:
         sitemap += '  <url>\n'
         sitemap += f'    <loc>https://yakimoto.se/products/{product["id"]}</loc>\n'
-        sitemap += '    <lastmod>2024-12-19</lastmod>\n'
+        sitemap += f'    <lastmod>{current_date}</lastmod>\n'
         sitemap += '    <changefreq>monthly</changefreq>\n'
         sitemap += '    <priority>0.8</priority>\n'
         sitemap += '  </url>\n'
@@ -530,14 +555,14 @@ def get_sitemap():
     # Cart and checkout pages (lower priority)
     sitemap += '  <url>\n'
     sitemap += '    <loc>https://yakimoto.se/cart</loc>\n'
-    sitemap += '    <lastmod>2024-12-19</lastmod>\n'
+    sitemap += f'    <lastmod>{current_date}</lastmod>\n'
     sitemap += '    <changefreq>monthly</changefreq>\n'
     sitemap += '    <priority>0.3</priority>\n'
     sitemap += '  </url>\n'
     
     sitemap += '  <url>\n'
     sitemap += '    <loc>https://yakimoto.se/checkout</loc>\n'
-    sitemap += '    <lastmod>2024-12-19</lastmod>\n'
+    sitemap += f'    <lastmod>{current_date}</lastmod>\n'
     sitemap += '    <changefreq>monthly</changefreq>\n'
     sitemap += '    <priority>0.3</priority>\n'
     sitemap += '  </url>\n'
@@ -556,6 +581,7 @@ def create_product(
     color: str = Form(None),
     gsm: str = Form(None),
     age_group: str = Form(None),
+    description: str = Form(None),
     auth=Depends(verify_token),
 ):
     conn = get_db()
@@ -563,8 +589,8 @@ def create_product(
 
     # Insert product (without image column)
     cursor.execute(
-        "INSERT INTO products (name, price, sizes, category, color, gsm, age_group) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (name, price, sizes, category, color, gsm, age_group)
+        "INSERT INTO products (name, price, sizes, category, color, gsm, age_group, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (name, price, sizes, category, color, gsm, age_group, description)
     )
     product_id = cursor.lastrowid
 
@@ -618,6 +644,7 @@ async def update_product(
     color: str = Form(None),
     gsm: str = Form(None),
     age_group: str = Form(None),
+    description: str = Form(None),
     auth=Depends(verify_token),
 ):
     conn = get_db()
@@ -625,8 +652,8 @@ async def update_product(
     
     # Update product basic info
     cursor.execute(
-        "UPDATE products SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, age_group = ? WHERE id = ?",
-        (name, price, sizes, category, color, gsm, age_group, product_id),
+        "UPDATE products SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, age_group = ?, description = ? WHERE id = ?",
+        (name, price, sizes, category, color, gsm, age_group, description, product_id),
     )
     
     # Handle new images if provided - parse form data manually to handle optional files

@@ -15,8 +15,8 @@ export const ProductList = () => {
         
         // Update page meta tags and canonical URL for homepage
         updatePageMeta(
-          "Yakimoto Dojo - Judo Gi, Judo Dräkt & Judo Suit | Alingsås Judoklubb",
-          "Köp högkvalitativa judo gi, judo dräkt och judo suit från Yakimoto Dojo. Officiell butik för Alingsås Judoklubb. Snabb leverans och expertis inom judo-utrustning.",
+          "Judodräkter & Kimonon – Yakimoto Dojo | Judo Gi, Bälten & Träningsoveraller",
+          "Judodräkter för barn och vuxna, bälten, träningsoveraller. Snabb leverans från Sverige. Köp judo dräkt barn, judo dräkt vuxen, judogi sverige, bjj gi sverige, judo bälte. Kimono judo Alingsås.",
           "https://yakimoto.se"
         );
         
@@ -44,7 +44,6 @@ export const ProductList = () => {
       <CategoriesSection />
       
       {/* All Products Section */}
-      <h2 className="text-2xl font-bold mb-6">Alla produkter</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
 
       {products.map((product) => (

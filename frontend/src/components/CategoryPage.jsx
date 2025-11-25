@@ -2,13 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { updatePageMeta } from '../seo.jsx';
-import { getImageUrl } from '../utils/imageUtils';
 import { SmartImage } from './SmartImage';
 
 export const CategoryPage = () => {
   const { categoryName } = useParams();
   const [products, setProducts] = useState([]);
-  const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,22 +18,31 @@ export const CategoryPage = () => {
   const fetchCategoryData = async () => {
     setLoading(true);
     try {
-      // Fetch category info
-      try {
-        const catRes = await api.get(`/categories/${categoryName}`);
-        setCategory(catRes.data);
-      } catch (err) {
-        console.log("Category not found, will use default");
-      }
-
       // Fetch products in category
       const productsRes = await api.get(`/products/category/${categoryName}`);
       setProducts(productsRes.data);
 
-      // Update page meta
+      // Update page meta with SEO keywords
+      const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
+      let seoTitle = `${categoryDisplay} - Yakimoto Dojo`;
+      let seoDescription = `Köp ${categoryName} från Yakimoto Dojo. Högkvalitativa produkter med snabb leverans från Sverige.`;
+      
+      // Add Swedish keywords based on category
+      const categoryLower = categoryName.toLowerCase();
+      if (categoryLower.includes('gi') || categoryLower.includes('kimono')) {
+        seoTitle = `Judogi Sverige & Kimono - ${categoryDisplay} | Yakimoto Dojo`;
+        seoDescription = `Köp ${categoryName} (judogi, kimono) från Yakimoto Dojo. Högkvalitativa judo gi för träning och tävling. Snabb leverans från Sverige.`;
+      } else if (categoryLower.includes('dräkt')) {
+        seoTitle = `Judodräkter - ${categoryDisplay} | Yakimoto Dojo`;
+        seoDescription = `Köp ${categoryName} (judodräkter) för barn och vuxna från Yakimoto Dojo. Högkvalitativ judo utrustning. Snabb leverans från Sverige.`;
+      } else if (categoryLower.includes('bälte') || categoryLower.includes('bälten')) {
+        seoTitle = `Judo Bälte & Bälten - ${categoryDisplay} | Yakimoto Dojo`;
+        seoDescription = `Köp ${categoryName} (judo bälte, judo bälten) från Yakimoto Dojo. Högkvalitativa bälten för alla nivåer. Snabb leverans från Sverige.`;
+      }
+      
       updatePageMeta(
-        `${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)} - Yakimoto Dojo`,
-        `Köp ${categoryName} från Yakimoto Dojo. Högkvalitativa produkter med snabb leverans.`,
+        seoTitle,
+        seoDescription,
         `https://yakimoto.se/category/${categoryName}`
       );
     } catch (err) {
@@ -62,28 +69,8 @@ export const CategoryPage = () => {
     );
   }
 
-  const displayCategoryName = categoryName ? categoryName.charAt(0).toUpperCase() + categoryName.slice(1) : 'Kategori';
-
   return (
     <div className="p-6">
-      {/* Category Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">{displayCategoryName}</h1>
-        <p className="text-gray-600">{products.length} produkter</p>
-      </div>
-
-      {/* Category Image Banner (if available) */}
-      {category?.image_filename && (
-        <div className="mb-8 w-full h-64 overflow-hidden rounded-lg">
-          <img
-            src={getImageUrl(category.image_filename)}
-            alt={displayCategoryName}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        </div>
-      )}
-
       {/* Products Grid */}
       {products.length === 0 ? (
         <div className="text-center py-12">
