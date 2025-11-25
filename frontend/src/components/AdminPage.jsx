@@ -391,43 +391,98 @@ function AdminPage({ token, login }) {
                 <p className="text-sm text-gray-600 mb-3">
                     Generera miniatyrer för alla befintliga bilder. Detta förbättrar laddningstiderna på produktsidor.
                 </p>
-                <button
-                    onClick={async () => {
-                        setIsGeneratingThumbnails(true);
-                        setThumbnailResult(null);
-                        try {
-                            const res = await axios.post(
-                                `${API_URL}/admin/generate-thumbnails`,
-                                {},
-                                {
-                                    headers: {
-                                        Authorization: `Bearer ${token}`
+                <div className="flex gap-2 mb-3">
+                    <button
+                        onClick={async () => {
+                            setIsGeneratingThumbnails(true);
+                            setThumbnailResult(null);
+                            try {
+                                const res = await axios.get(
+                                    `${API_URL}/admin/thumbnail-status`,
+                                    {
+                                        headers: {
+                                            Authorization: `Bearer ${token}`
+                                        }
                                     }
-                                }
-                            );
-                            setThumbnailResult(res.data);
-                        } catch (err) {
-                            setThumbnailResult({
-                                message: "Fel uppstod",
-                                errors: [err.response?.data?.detail || err.message || "Okänt fel"]
-                            });
-                        } finally {
-                            setIsGeneratingThumbnails(false);
-                        }
-                    }}
-                    disabled={isGeneratingThumbnails}
-                    className={`px-4 py-2 ${isGeneratingThumbnails ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white rounded`}
-                >
-                    {isGeneratingThumbnails ? 'Genererar miniatyrer...' : 'Generera miniatyrer för alla bilder'}
-                </button>
+                                );
+                                const status = res.data;
+                                setThumbnailResult({
+                                    message: `Miniatyrstatus: ${status.thumbnail_count} av ${status.total} bilder har miniatyrer`,
+                                    processed: status.thumbnail_count,
+                                    skipped: status.without_thumbnails.length,
+                                    total: status.total,
+                                    errors: status.missing_originals.length > 0 
+                                        ? [`Saknade originalbilder: ${status.missing_originals.length}`]
+                                        : [],
+                                    details: {
+                                        with_thumbnails: status.with_thumbnails.length,
+                                        without_thumbnails: status.without_thumbnails.length,
+                                        missing_originals: status.missing_originals.length
+                                    }
+                                });
+                            } catch (err) {
+                                setThumbnailResult({
+                                    message: "Fel uppstod vid kontroll",
+                                    errors: [err.response?.data?.detail || err.message || "Okänt fel"]
+                                });
+                            } finally {
+                                setIsGeneratingThumbnails(false);
+                            }
+                        }}
+                        disabled={isGeneratingThumbnails}
+                        className={`px-4 py-2 ${isGeneratingThumbnails ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded`}
+                    >
+                        Kontrollera miniatyrstatus
+                    </button>
+                    <button
+                        onClick={async () => {
+                            setIsGeneratingThumbnails(true);
+                            setThumbnailResult(null);
+                            try {
+                                const res = await axios.post(
+                                    `${API_URL}/admin/generate-thumbnails`,
+                                    {},
+                                    {
+                                        headers: {
+                                            Authorization: `Bearer ${token}`
+                                        }
+                                    }
+                                );
+                                setThumbnailResult(res.data);
+                            } catch (err) {
+                                setThumbnailResult({
+                                    message: "Fel uppstod",
+                                    errors: [err.response?.data?.detail || err.message || "Okänt fel"]
+                                });
+                            } finally {
+                                setIsGeneratingThumbnails(false);
+                            }
+                        }}
+                        disabled={isGeneratingThumbnails}
+                        className={`px-4 py-2 ${isGeneratingThumbnails ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white rounded`}
+                    >
+                        {isGeneratingThumbnails ? 'Genererar miniatyrer...' : 'Generera miniatyrer för alla bilder'}
+                    </button>
+                </div>
                 {thumbnailResult && (
                     <div className={`mt-3 p-3 rounded ${thumbnailResult.errors && thumbnailResult.errors.length > 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
                         <p className="font-medium">{thumbnailResult.message}</p>
-                        <p className="text-sm mt-1">
-                            Bearbetade: {thumbnailResult.processed || 0} | 
-                            Hoppade över: {thumbnailResult.skipped || 0} | 
-                            Totalt: {thumbnailResult.total || 0}
-                        </p>
+                        {thumbnailResult.details && (
+                            <div className="text-sm mt-2 space-y-1">
+                                <p>✓ Med miniatyrer: {thumbnailResult.details.with_thumbnails}</p>
+                                <p>✗ Utan miniatyrer: {thumbnailResult.details.without_thumbnails}</p>
+                                {thumbnailResult.details.missing_originals > 0 && (
+                                    <p className="text-yellow-700">⚠ Saknade originalbilder: {thumbnailResult.details.missing_originals}</p>
+                                )}
+                            </div>
+                        )}
+                        {!thumbnailResult.details && (
+                            <p className="text-sm mt-1">
+                                Bearbetade: {thumbnailResult.processed || 0} | 
+                                Hoppade över: {thumbnailResult.skipped || 0} | 
+                                Totalt: {thumbnailResult.total || 0}
+                            </p>
+                        )}
                         {thumbnailResult.errors && thumbnailResult.errors.length > 0 && (
                             <div className="mt-2">
                                 <p className="text-sm font-medium text-yellow-800">Fel:</p>

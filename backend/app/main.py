@@ -705,6 +705,56 @@ def delete_product(product_id: int, auth=Depends(verify_token)):
     conn.close()
     return {"message": "Product deleted", "id": product_id}
 
+@app.get("/admin/thumbnail-status")
+def get_thumbnail_status(auth=Depends(verify_token)):
+    """Check thumbnail status for all images"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get all image filenames from database
+    cursor.execute("SELECT DISTINCT filename FROM product_images")
+    product_images = [row["filename"] for row in cursor.fetchall()]
+    
+    cursor.execute("SELECT DISTINCT image_filename FROM categories WHERE image_filename IS NOT NULL")
+    category_images = [row["image_filename"] for row in cursor.fetchall()]
+    
+    all_images = set(product_images + category_images)
+    
+    status = {
+        "with_thumbnails": [],
+        "without_thumbnails": [],
+        "missing_originals": [],
+        "total": len(all_images),
+        "thumbnail_count": 0,
+        "missing_count": 0
+    }
+    
+    for filename in all_images:
+        if not filename:
+            continue
+        
+        # Check if original image exists
+        image_path = os.path.join(UPLOAD_DIR, filename)
+        if not os.path.exists(image_path):
+            status["missing_originals"].append(filename)
+            status["missing_count"] += 1
+            continue
+        
+        # Check if thumbnail exists
+        base_name = os.path.splitext(filename)[0]
+        thumbnail_filename = f"{base_name}_thumb.jpg"
+        thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_filename)
+        
+        if os.path.exists(thumbnail_path):
+            status["with_thumbnails"].append(filename)
+            status["thumbnail_count"] += 1
+        else:
+            status["without_thumbnails"].append(filename)
+    
+    conn.close()
+    
+    return status
+
 @app.post("/admin/generate-thumbnails")
 def generate_thumbnails_for_existing_images(auth=Depends(verify_token)):
     """Generate thumbnails for all existing images that don't have thumbnails yet"""
