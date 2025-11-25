@@ -16,6 +16,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import stripe
+from PIL import Image
+import io
 
 load_dotenv()
 
@@ -41,7 +43,10 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 
 # Ensure upload directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+THUMBNAIL_DIR = os.path.join(UPLOAD_DIR, "thumbnails")
+os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+app.mount("/thumbnails", StaticFiles(directory=THUMBNAIL_DIR), name="thumbnails")
 
 # CORS config
 app.add_middleware(
@@ -68,6 +73,51 @@ def get_db():
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return conn
+
+# Image optimization functions
+def optimize_image(image_bytes: bytes, max_size: tuple = (1920, 1920), quality: int = 85) -> bytes:
+    """Resize and compress an image"""
+    img = Image.open(io.BytesIO(image_bytes))
+    
+    # Convert RGBA to RGB if necessary (for JPEG)
+    if img.mode in ('RGBA', 'LA', 'P'):
+        background = Image.new('RGB', img.size, (255, 255, 255))
+        if img.mode == 'P':
+            img = img.convert('RGBA')
+        background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+        img = background
+    elif img.mode != 'RGB':
+        img = img.convert('RGB')
+    
+    # Resize if image is larger than max_size
+    img.thumbnail(max_size, Image.Resampling.LANCZOS)
+    
+    # Save to bytes with compression
+    output = io.BytesIO()
+    img.save(output, format='JPEG', quality=quality, optimize=True)
+    return output.getvalue()
+
+def create_thumbnail(image_bytes: bytes, size: tuple = (400, 400), quality: int = 80) -> bytes:
+    """Create a thumbnail version of an image"""
+    img = Image.open(io.BytesIO(image_bytes))
+    
+    # Convert RGBA to RGB if necessary
+    if img.mode in ('RGBA', 'LA', 'P'):
+        background = Image.new('RGB', img.size, (255, 255, 255))
+        if img.mode == 'P':
+            img = img.convert('RGBA')
+        background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+        img = background
+    elif img.mode != 'RGB':
+        img = img.convert('RGB')
+    
+    # Create thumbnail
+    img.thumbnail(size, Image.Resampling.LANCZOS)
+    
+    # Save to bytes
+    output = io.BytesIO()
+    img.save(output, format='JPEG', quality=quality, optimize=True)
+    return output.getvalue()
 
 # Setup DB schema
 def setup_database():
@@ -311,10 +361,15 @@ def create_category(
     
     image_filename = None
     if image and image.filename:
-        image_filename = f"{uuid.uuid4()}_{image.filename}"
+        # Read and optimize category image
+        original_bytes = image.file.read()
+        optimized_bytes = optimize_image(original_bytes, max_size=(1920, 1920), quality=85)
+        
+        base_filename = f"{uuid.uuid4()}_{image.filename}"
+        image_filename = os.path.splitext(base_filename)[0] + ".jpg"
         image_path = os.path.join(UPLOAD_DIR, image_filename)
         with open(image_path, "wb") as buffer:
-            buffer.write(image.file.read())
+            buffer.write(optimized_bytes)
     
     # Check if category exists
     cursor.execute("SELECT id FROM categories WHERE name = ?", (name,))
@@ -365,11 +420,15 @@ def update_category(
             if os.path.exists(old_image_path):
                 os.remove(old_image_path)
         
-        # Save new image
-        image_filename = f"{uuid.uuid4()}_{image.filename}"
+        # Read and optimize new image
+        original_bytes = image.file.read()
+        optimized_bytes = optimize_image(original_bytes, max_size=(1920, 1920), quality=85)
+        
+        base_filename = f"{uuid.uuid4()}_{image.filename}"
+        image_filename = os.path.splitext(base_filename)[0] + ".jpg"
         image_path = os.path.join(UPLOAD_DIR, image_filename)
         with open(image_path, "wb") as buffer:
-            buffer.write(image.file.read())
+            buffer.write(optimized_bytes)
     
     # Update category
     cursor.execute(
@@ -496,10 +555,30 @@ def create_product(
 
     # Save images - set first image as main
     for idx, image in enumerate(images):
-        filename = f"{uuid.uuid4()}_{image.filename}"
+        # Read original image
+        original_bytes = image.file.read()
+        
+        # Optimize main image (max 1920x1920, quality 85)
+        optimized_bytes = optimize_image(original_bytes, max_size=(1920, 1920), quality=85)
+        
+        # Create thumbnail (400x400, quality 80)
+        thumbnail_bytes = create_thumbnail(original_bytes, size=(400, 400), quality=80)
+        
+        # Generate filenames
+        base_filename = f"{uuid.uuid4()}_{image.filename}"
+        # Change extension to .jpg for optimized images
+        filename = os.path.splitext(base_filename)[0] + ".jpg"
+        thumbnail_filename = os.path.splitext(base_filename)[0] + "_thumb.jpg"
+        
+        # Save optimized main image
         image_path = os.path.join(UPLOAD_DIR, filename)
         with open(image_path, "wb") as buffer:
-            buffer.write(image.file.read())
+            buffer.write(optimized_bytes)
+        
+        # Save thumbnail
+        thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_filename)
+        with open(thumbnail_path, "wb") as buffer:
+            buffer.write(thumbnail_bytes)
 
         # Link image to product - first image is main
         is_main = 1 if idx == 0 else 0
@@ -546,11 +625,30 @@ async def update_product(
         for idx, image in enumerate(images):
             # Check if it's actually a file upload (not just a string)
             if hasattr(image, 'filename') and image.filename:
-                filename = f"{uuid.uuid4()}_{image.filename}"
+                # Read original image
+                original_bytes = await image.read()
+                
+                # Optimize main image (max 1920x1920, quality 85)
+                optimized_bytes = optimize_image(original_bytes, max_size=(1920, 1920), quality=85)
+                
+                # Create thumbnail (400x400, quality 80)
+                thumbnail_bytes = create_thumbnail(original_bytes, size=(400, 400), quality=80)
+                
+                # Generate filenames
+                base_filename = f"{uuid.uuid4()}_{image.filename}"
+                # Change extension to .jpg for optimized images
+                filename = os.path.splitext(base_filename)[0] + ".jpg"
+                thumbnail_filename = os.path.splitext(base_filename)[0] + "_thumb.jpg"
+                
+                # Save optimized main image
                 image_path = os.path.join(UPLOAD_DIR, filename)
-                content = await image.read()
                 with open(image_path, "wb") as buffer:
-                    buffer.write(content)
+                    buffer.write(optimized_bytes)
+                
+                # Save thumbnail
+                thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_filename)
+                with open(thumbnail_path, "wb") as buffer:
+                    buffer.write(thumbnail_bytes)
 
                 # Link image to product - set as main if no main exists and this is the first new image
                 is_main = 1 if (not has_main and idx == 0) else 0

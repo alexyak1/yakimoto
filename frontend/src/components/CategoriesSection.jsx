@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { SmartImage } from './SmartImage';
 
 export const CategoriesSection = () => {
   const [categories, setCategories] = useState([]);
@@ -41,10 +40,6 @@ export const CategoriesSection = () => {
       <div className="relative">
         <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-0 overflow-x-auto sm:overflow-x-visible snap-x snap-mandatory sm:snap-none scrollbar-hide px-6 sm:px-0">
           {categories.map((category) => {
-            const imageSrc = category.image_filename 
-              ? `${API_URL}/uploads/${category.image_filename}` 
-              : null;
-
             const displayName = category.name 
               ? category.name.charAt(0).toUpperCase() + category.name.slice(1)
               : 'Kategori';
@@ -56,11 +51,12 @@ export const CategoriesSection = () => {
                 className="group relative overflow-hidden h-[600px] hover:opacity-95 transition-opacity duration-300 flex-shrink-0 w-[75vw] sm:w-auto snap-start sm:snap-none"
               >
                 <div className="w-full h-full overflow-hidden bg-gray-100">
-                  {imageSrc ? (
-                    <img
-                      src={imageSrc}
+                  {category.image_filename ? (
+                    <SmartImage
+                      src={category.image_filename}
                       alt={displayName}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400">

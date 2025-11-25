@@ -3,8 +3,7 @@ import { Trash2 } from 'lucide-react';
 import { checkout } from '../api';
 import { useNavigate } from 'react-router-dom';
 import { updatePageMeta } from '../seo.jsx';
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { SmartImage } from './SmartImage';
 
 export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
   const [loading, setLoading] = useState(false);
@@ -83,10 +82,11 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
               key={index}
               className="flex items-start justify-between border-b pb-6"
             >
-              <img
-                src={`${API_URL}/uploads/${item.images?.[0]}`}
+              <SmartImage
+                src={item.images?.[0]}
                 alt={item.name}
                 className="w-28 h-28 object-cover rounded"
+                loading="lazy"
               />
 
               <div className="flex-1 px-4">

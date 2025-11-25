@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { SmartImage } from './SmartImage';
 
 export const ProductGroup = ({ category }) => {
   const [groupedProducts, setGroupedProducts] = useState([]);
@@ -82,11 +81,6 @@ export const ProductGroup = ({ category }) => {
     <div className="w-full mb-12">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0">
         {displayProductsLimited.map((product, index) => {
-          // Use product image for each variation panel
-          const imageSrc = product.images?.length > 0 
-            ? `${API_URL}/uploads/${product.images[0]}` 
-            : null;
-
           return (
             <Link
               key={product.id || index}
@@ -94,11 +88,12 @@ export const ProductGroup = ({ category }) => {
               className="group relative overflow-hidden h-[600px] hover:opacity-95 transition-opacity duration-300"
             >
               <div className="w-full h-full overflow-hidden bg-gray-100">
-                {imageSrc ? (
-                  <img
-                    src={imageSrc}
+                {product.images?.length > 0 ? (
+                  <SmartImage
+                    src={product.images[0]}
                     alt={product.label || product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400">

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { updatePageMeta } from '../seo.jsx';
+import { getImageUrl } from '../utils/imageUtils';
+import { SmartImage } from './SmartImage';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -455,10 +457,11 @@ function AdminPage({ token, login }) {
                                                 {cat.image_filename && !editCategoryImage && (
                                                     <div className="mt-2">
                                                         <p className="text-sm text-gray-600 mb-1">Nuvarande bild:</p>
-                                                        <img
-                                                            src={`${API_URL}/uploads/${cat.image_filename}`}
+                                                        <SmartImage
+                                                            src={cat.image_filename}
                                                             alt={cat.name}
                                                             className="w-32 h-32 object-cover rounded"
+                                                            loading="lazy"
                                                         />
                                                     </div>
                                                 )}
@@ -485,10 +488,11 @@ function AdminPage({ token, login }) {
                                             <div className="flex-1">
                                                 <p className="font-medium">{cat.name}</p>
                                                 {cat.image_filename && (
-                                                    <img
-                                                        src={`${API_URL}/uploads/${cat.image_filename}`}
+                                                    <SmartImage
+                                                        src={cat.image_filename}
                                                         alt={cat.name}
                                                         className="w-32 h-32 object-cover mt-2 rounded"
+                                                        loading="lazy"
                                                     />
                                                 )}
                                             </div>
@@ -743,13 +747,14 @@ function AdminPage({ token, login }) {
                                                 const isMain = product.main_image === img || (idx === 0 && !product.main_image);
                                                 return (
                                                     <div key={idx} className="relative">
-                                                        <img
-                                                            src={`${API_URL}/uploads/${img}`}
+                                                        <SmartImage
+                                                            src={img}
                                                             alt="Produktbild"
                                                             onClick={() => handleSetMainImage(product.id, img)}
                                                             className={`w-20 h-20 object-cover border-2 cursor-pointer hover:opacity-80 transition ${
                                                                 isMain ? 'border-blue-600 border-4' : 'border-gray-300'
                                                             }`}
+                                                            loading="lazy"
                                                         />
                                                         {isMain && (
                                                             <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs px-1 rounded-bl">

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { updatePageMeta } from '../seo.jsx';
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { getImageUrl } from '../utils/imageUtils';
+import { SmartImage } from './SmartImage';
 
 export const CategoryPage = () => {
   const { categoryName } = useParams();
@@ -76,9 +76,10 @@ export const CategoryPage = () => {
       {category?.image_filename && (
         <div className="mb-8 w-full h-64 overflow-hidden rounded-lg">
           <img
-            src={`${API_URL}/uploads/${category.image_filename}`}
+            src={getImageUrl(category.image_filename)}
             alt={displayCategoryName}
             className="w-full h-full object-cover"
+            loading="lazy"
           />
         </div>
       )}
@@ -101,10 +102,11 @@ export const CategoryPage = () => {
             >
               <div className="w-full h-96 overflow-hidden">
                 {product.images?.length > 0 && (
-                  <img
-                    src={`${API_URL}/uploads/${product.images[0]}`}
+                  <SmartImage
+                    src={product.images[0]}
                     alt={product.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                 )}
               </div>

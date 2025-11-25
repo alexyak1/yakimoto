@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import api from '../api';
 import { Toaster, toast } from "react-hot-toast";
 import { generateProductStructuredData, addStructuredDataToHead, updatePageMeta } from '../seo.jsx';
+import { getImageUrl } from '../utils/imageUtils';
+import { SmartImage } from './SmartImage';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -101,19 +103,21 @@ export default function ProductDetailPage({ onAddToCart }) {
             <div className="flex flex-col items-center gap-4">
                 <div className="w-full aspect-square overflow-hidden rounded-lg border">
                     <img
-                        src={`${API_URL}/uploads/${images[selectedImageIndex]}`}
+                        src={getImageUrl(images[selectedImageIndex])}
                         className="w-full h-full object-cover transition duration-300 ease-in-out"
                         alt={`Produktbild ${selectedImageIndex + 1}`}
+                        loading="eager"
                     />
                 </div>
                 <div className="flex gap-2">
                     {images.map((img, idx) => (
-                        <img
+                        <SmartImage
                             key={idx}
-                            src={`${API_URL}/uploads/${img}`}
+                            src={img}
                             onClick={() => setSelectedImageIndex(idx)}
                             className={`w-20 h-20 object-cover rounded cursor-pointer border-2 ${selectedImageIndex === idx ? 'border-black' : 'border-transparent'
                                 }`}
+                            loading="lazy"
                         />
                     ))}
                 </div>

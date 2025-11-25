@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import { generateStructuredData, addStructuredDataToHead, updatePageMeta } from '../seo.jsx';
 import { CategoriesSection } from './CategoriesSection';
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { SmartImage } from './SmartImage';
 
 export const ProductList = () => {
   const [products, setProducts] = useState([]);
@@ -56,10 +55,11 @@ export const ProductList = () => {
         >
           <div className="w-full h-96 overflow-hidden">
             {product.images?.length > 0 && (
-              <img
-                src={`${API_URL}/uploads/${product.images[0]}`}
+              <SmartImage
+                src={product.images[0]}
                 alt={product.name}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             )}
           </div>
