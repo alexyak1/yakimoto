@@ -36,7 +36,7 @@ export const CategoriesSection = () => {
 
   return (
     <div className="w-full mb-12 relative">
-      <div className="relative max-w-7xl mx-auto px-8 lg:px-12">
+      <div className="relative max-w-7xl mx-auto px-0 lg:px-12">
         <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-3 lg:gap-4 overflow-x-auto sm:overflow-x-visible snap-x snap-mandatory sm:snap-none scrollbar-hide">
           {categories.map((category) => {
             const displayName = category.name 
