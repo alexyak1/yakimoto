@@ -36,8 +36,8 @@ export const CategoriesSection = () => {
 
   return (
     <div className="w-full mb-12 relative">
-      <div className="relative">
-        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-0 overflow-x-auto sm:overflow-x-visible snap-x snap-mandatory sm:snap-none scrollbar-hide px-6 sm:px-0">
+      <div className="relative max-w-7xl mx-auto px-8 lg:px-12">
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-3 lg:gap-4 overflow-x-auto sm:overflow-x-visible snap-x snap-mandatory sm:snap-none scrollbar-hide">
           {categories.map((category) => {
             const displayName = category.name 
               ? category.name.charAt(0).toUpperCase() + category.name.slice(1)
@@ -47,7 +47,7 @@ export const CategoriesSection = () => {
               <Link
                 key={category.id || category.name}
                 to={`/category/${category.name}`}
-                className="group relative overflow-hidden h-[400px] hover:opacity-95 transition-opacity duration-300 flex-shrink-0 w-[55vw] sm:w-auto snap-start sm:snap-none"
+                className="group relative overflow-hidden h-[400px] sm:h-[500px] lg:h-[600px] hover:opacity-95 transition-opacity duration-300 flex-shrink-0 w-[55vw] sm:w-auto snap-start sm:snap-none"
               >
                 <div className="w-full h-full overflow-hidden bg-gray-100">
                   {category.image_filename ? (
@@ -74,7 +74,7 @@ export const CategoriesSection = () => {
         </div>
         {/* Small scroll dots indicator */}
         {categories.length > 1 && (
-          <div className="sm:hidden flex justify-center gap-1.5 mt-4 px-6">
+          <div className="sm:hidden flex justify-center gap-1.5 mt-4">
             {categories.map((_, index) => (
               <div
                 key={index}
