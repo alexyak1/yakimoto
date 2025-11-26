@@ -35,9 +35,9 @@ export const CategoriesSection = () => {
   }
 
   return (
-    <div className="w-full mb-12 relative">
-      <div className="relative max-w-7xl mx-auto px-0 lg:px-12">
-        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-3 lg:gap-4 overflow-x-auto sm:overflow-x-visible snap-x snap-mandatory sm:snap-none scrollbar-hide">
+    <div className="mb-12 relative -mx-6 left-0 right-0 w-[calc(100%+3rem)] lg:mx-0 lg:left-auto lg:right-auto lg:w-full">
+      <div className="relative w-full max-w-7xl mx-auto px-0 lg:px-12">
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-0 overflow-x-auto sm:overflow-x-visible snap-x snap-mandatory sm:snap-none scrollbar-hide">
           {categories.map((category) => {
             const displayName = category.name 
               ? category.name.charAt(0).toUpperCase() + category.name.slice(1)
@@ -64,7 +64,7 @@ export const CategoriesSection = () => {
                   )}
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6">
-                  <h3 className="text-white font-bold text-xl mb-1">
+                  <h3 className="text-white font-bold text-2xl lg:text-3xl mb-1">
                     {displayName}
                   </h3>
                 </div>
