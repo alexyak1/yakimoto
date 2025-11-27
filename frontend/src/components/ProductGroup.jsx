@@ -106,7 +106,19 @@ export const ProductGroup = ({ category }) => {
                   {product.label || product.name}
                 </h3>
                 {product.price && (
-                  <p className="text-white/90 text-base">{product.price} kr</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {product.sale_price ? (
+                      <>
+                        <p className="text-white font-semibold text-lg">{product.sale_price} kr</p>
+                        <p className="text-white/60 line-through text-sm">{product.price} kr</p>
+                        <span className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded">
+                          -{Math.round(((product.price - product.sale_price) / product.price) * 100)}%
+                        </span>
+                      </>
+                    ) : (
+                      <p className="text-white/90 text-base">{product.price} kr</p>
+                    )}
+                  </div>
                 )}
               </div>
             </Link>

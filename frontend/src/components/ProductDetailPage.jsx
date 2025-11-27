@@ -157,7 +157,19 @@ export default function ProductDetailPage({ onAddToCart }) {
             {/* Product info */}
             <div>
                 <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
-                <p className="text-xl text-gray-800 mb-4">{product.price} kr</p>
+                <div className="mb-4">
+                  {product.sale_price ? (
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <p className="text-2xl text-blue-700 font-bold">{product.sale_price} kr</p>
+                      <p className="text-xl text-gray-400 line-through">{product.price} kr</p>
+                      <span className="bg-red-600 text-white text-sm font-semibold px-3 py-1 rounded">
+                        -{Math.round(((product.price - product.sale_price) / product.price) * 100)}%
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-xl text-gray-800">{product.price} kr</p>
+                  )}
+                </div>
                 
                 {/* Product Description */}
                 {product.description && (
@@ -279,7 +291,7 @@ export default function ProductDetailPage({ onAddToCart }) {
                     onClick={handleAddToCart}
                     className="w-full bg-black text-white py-3 rounded hover:bg-gray-800 transition"
                 >
-                    Lägg i varukorg – {product.price} kr
+                    Lägg i varukorg – {product.sale_price || product.price} kr
                 </button>
 
                 {selectedSize && sizes.find(([s]) => s === selectedSize)?.[1] === 0 && (

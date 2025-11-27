@@ -100,10 +100,28 @@ export const CategoryPage = () => {
 
               <div className="p-4">
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">{product.name}</h2>
-                <p className="text-blue-700 font-medium">{product.price} kr</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {product.sale_price ? (
+                    <>
+                      <p className="text-blue-700 font-medium text-lg">{product.sale_price} kr</p>
+                      <p className="text-gray-400 line-through text-sm">{product.price} kr</p>
+                      <span className="bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded">
+                        -{Math.round(((product.price - product.sale_price) / product.price) * 100)}%
+                      </span>
+                    </>
+                  ) : (
+                    <p className="text-blue-700 font-medium">{product.price} kr</p>
+                  )}
+                </div>
                 <p className="text-sm text-gray-500">{getStockStatus(product.sizes)}</p>
               </div>
 
+              {/* Sale badge overlay */}
+              {product.sale_price && (
+                <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded">
+                  REA
+                </div>
+              )}
               {/* Optional: "Slut i lager" badge overlay */}
               {getStockStatus(product.sizes) === "Slut i lager" && (
                 <div className="absolute top-3 right-3 bg-red-600 text-white text-xs px-2 py-1 rounded">

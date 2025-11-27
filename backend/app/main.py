@@ -183,6 +183,11 @@ def setup_database():
         conn.execute("ALTER TABLE products ADD COLUMN description TEXT")
     except sqlite3.OperationalError:
         pass  # Column already exists
+    
+    try:
+        conn.execute("ALTER TABLE products ADD COLUMN sale_price INTEGER")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS product_images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -582,6 +587,7 @@ def create_product(
     gsm: str = Form(None),
     age_group: str = Form(None),
     description: str = Form(None),
+    sale_price: int = Form(None),
     auth=Depends(verify_token),
 ):
     conn = get_db()
@@ -589,8 +595,8 @@ def create_product(
 
     # Insert product (without image column)
     cursor.execute(
-        "INSERT INTO products (name, price, sizes, category, color, gsm, age_group, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (name, price, sizes, category, color, gsm, age_group, description)
+        "INSERT INTO products (name, price, sizes, category, color, gsm, age_group, description, sale_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (name, price, sizes, category, color, gsm, age_group, description, sale_price)
     )
     product_id = cursor.lastrowid
 
@@ -645,6 +651,7 @@ async def update_product(
     gsm: str = Form(None),
     age_group: str = Form(None),
     description: str = Form(None),
+    sale_price: int = Form(None),
     auth=Depends(verify_token),
 ):
     conn = get_db()
@@ -652,8 +659,8 @@ async def update_product(
     
     # Update product basic info
     cursor.execute(
-        "UPDATE products SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, age_group = ?, description = ? WHERE id = ?",
-        (name, price, sizes, category, color, gsm, age_group, description, product_id),
+        "UPDATE products SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, age_group = ?, description = ?, sale_price = ? WHERE id = ?",
+        (name, price, sizes, category, color, gsm, age_group, description, sale_price, product_id),
     )
     
     # Handle new images if provided - parse form data manually to handle optional files

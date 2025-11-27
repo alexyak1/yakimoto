@@ -101,7 +101,7 @@ function App() {
     trackAddToCart({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: product.sale_price || product.price,
       quantity: product.quantity || 1,
       category: product.category || 'Product'
     });

@@ -55,7 +55,10 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess, 
     try {
       // Calculate delivery cost
       const deliveryCost = formData.deliveryMethod === 'postnord' ? 82 : 0;
-      const itemsTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const itemsTotal = cart.reduce((sum, item) => {
+        const itemPrice = item.sale_price || item.price;
+        return sum + itemPrice * item.quantity;
+      }, 0);
       const total = itemsTotal + deliveryCost;
 
       const orderData = {
@@ -100,13 +103,16 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess, 
         });
 
         // Track purchase event
-        const items = cart.map(item => ({
-          item_id: item.id,
-          item_name: item.name,
-          item_category: item.category || 'Product',
-          quantity: item.quantity,
-          price: item.price,
-        }));
+        const items = cart.map(item => {
+          const itemPrice = item.sale_price || item.price;
+          return {
+            item_id: item.id,
+            item_name: item.name,
+            item_category: item.category || 'Product',
+            quantity: item.quantity,
+            price: itemPrice,
+          };
+        });
         
         trackPurchase(paymentIntent.id, total, 'SEK', items);
 

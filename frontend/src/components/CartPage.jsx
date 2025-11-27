@@ -17,7 +17,10 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
   const [phone, setPhone] = useState('');
   const [payment, setPayment] = useState('swish');
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = cart.reduce((sum, item) => {
+    const itemPrice = item.sale_price || item.price;
+    return sum + itemPrice * item.quantity;
+  }, 0);
 
   // Update page meta tags and canonical URL
   useEffect(() => {
@@ -47,7 +50,7 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
           name: item.name,
           size: item.selectedSize,
           quantity: item.quantity,
-          price: item.price,
+          price: item.sale_price || item.price,
         })),
         total,
         customer: {
@@ -125,7 +128,7 @@ export const CartPage = ({ cart, removeFromCart, updateQuantity }) => {
               </div>
 
               <div className="text-right font-semibold">
-                {item.price * item.quantity} kr
+                {(item.sale_price || item.price) * item.quantity} kr
               </div>
             </div>
           ))}

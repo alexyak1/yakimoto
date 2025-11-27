@@ -72,14 +72,20 @@ export default function Checkout({ cart, setCart }) {
       loadStripeKey();
       
       // Track begin checkout event
-      const totalValue = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const items = cart.map(item => ({
-        item_id: item.id,
-        item_name: item.name,
-        item_category: item.category || 'Product',
-        quantity: item.quantity,
-        price: item.price,
-      }));
+      const totalValue = cart.reduce((sum, item) => {
+        const itemPrice = item.sale_price || item.price;
+        return sum + itemPrice * item.quantity;
+      }, 0);
+      const items = cart.map(item => {
+        const itemPrice = item.sale_price || item.price;
+        return {
+          item_id: item.id,
+          item_name: item.name,
+          item_category: item.category || 'Product',
+          quantity: item.quantity,
+          price: itemPrice,
+        };
+      });
       
       trackBeginCheckout(totalValue, items);
     }
@@ -248,7 +254,10 @@ export default function Checkout({ cart, setCart }) {
              <div className="space-y-1">
                <div className="flex justify-between">
                  <span>Produkter:</span>
-                 <span>{cart.reduce((sum, item) => sum + item.price * item.quantity, 0)} SEK</span>
+                 <span>{cart.reduce((sum, item) => {
+                   const itemPrice = item.sale_price || item.price;
+                   return sum + itemPrice * item.quantity;
+                 }, 0)} SEK</span>
                </div>
                <div className="flex justify-between">
                  <span>Leverans:</span>
@@ -256,7 +265,10 @@ export default function Checkout({ cart, setCart }) {
                </div>
                <div className="flex justify-between font-bold text-lg border-t pt-2">
                  <span>Totalt:</span>
-                 <span>{cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (formData.deliveryMethod === 'postnord' ? 82 : 0)} SEK</span>
+                 <span>{cart.reduce((sum, item) => {
+                   const itemPrice = item.sale_price || item.price;
+                   return sum + itemPrice * item.quantity;
+                 }, 0) + (formData.deliveryMethod === 'postnord' ? 82 : 0)} SEK</span>
                </div>
              </div>
            </div>

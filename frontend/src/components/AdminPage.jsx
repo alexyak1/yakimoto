@@ -16,7 +16,7 @@ function AdminPage({ token, login }) {
     const [createSuccess, setCreateSuccess] = useState(false);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
-    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "", description: "" });
+    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "", description: "", sale_price: "" });
     const [editImageFiles, setEditImageFiles] = useState([]);
     const [description, setDescription] = useState("");
     const [isUploading, setIsUploading] = useState(false);
@@ -25,6 +25,7 @@ function AdminPage({ token, login }) {
     const [color, setColor] = useState("");
     const [gsm, setGsm] = useState("");
     const [ageGroup, setAgeGroup] = useState("");
+    const [salePrice, setSalePrice] = useState("");
     const [categories, setCategories] = useState([]);
     const [categoryName, setCategoryName] = useState("");
     const [categoryImage, setCategoryImage] = useState(null);
@@ -181,6 +182,7 @@ function AdminPage({ token, login }) {
             if (gsm) formData.append("gsm", gsm);
             if (ageGroup) formData.append("age_group", ageGroup);
             if (description) formData.append("description", description);
+            if (salePrice) formData.append("sale_price", salePrice);
             for (let file of imageFiles) {
                 formData.append("images", file);
             }
@@ -201,6 +203,7 @@ function AdminPage({ token, login }) {
             setGsm("");
             setAgeGroup("");
             setDescription("");
+            setSalePrice("");
             await fetchProducts();
             
             // Clear success message after 2 seconds
@@ -255,6 +258,7 @@ function AdminPage({ token, login }) {
             gsm: product.gsm || "",
             age_group: product.age_group || "",
             description: product.description || "",
+            sale_price: product.sale_price || "",
         });
     };
 
@@ -296,6 +300,7 @@ function AdminPage({ token, login }) {
             if (editForm.gsm) formData.append("gsm", editForm.gsm);
             if (editForm.age_group) formData.append("age_group", editForm.age_group);
             if (editForm.description) formData.append("description", editForm.description);
+            if (editForm.sale_price) formData.append("sale_price", editForm.sale_price);
             for (let file of editImageFiles) {
                 formData.append("images", file);
             }
@@ -699,6 +704,15 @@ function AdminPage({ token, login }) {
                     className="border p-1 mr-2"
                 />
 
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Reapris (lämna tomt om ingen rea)</label>
+                <input
+                    type="number"
+                    placeholder="Reapris"
+                    value={salePrice}
+                    onChange={(e) => setSalePrice(e.target.value)}
+                    className="border p-1 mr-2"
+                />
+
                 <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategori (t.ex. "judo gi")</label>
                 <input
                     type="text"
@@ -838,6 +852,16 @@ function AdminPage({ token, login }) {
                                     onChange={(e) => setEditForm((prev) => ({ ...prev, price: e.target.value }))}
                                     className="border p-1 mr-2"
                                 />
+                                <div className="mt-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Reapris (lämna tomt om ingen rea)</label>
+                                    <input
+                                        name="sale_price"
+                                        value={editForm.sale_price}
+                                        onChange={(e) => setEditForm((prev) => ({ ...prev, sale_price: e.target.value }))}
+                                        className="border p-1 mr-2"
+                                        placeholder="Reapris"
+                                    />
+                                </div>
                                 <div className="mt-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
                                     <input
