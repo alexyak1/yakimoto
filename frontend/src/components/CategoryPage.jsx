@@ -101,7 +101,7 @@ export const CategoryPage = () => {
               <div className="p-4">
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">{product.name}</h2>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {product.sale_price ? (
+                  {product.sale_price && product.sale_price > 0 && product.sale_price < product.price ? (
                     <>
                       <p className="text-blue-700 font-medium text-lg">{product.sale_price} kr</p>
                       <p className="text-gray-400 line-through text-sm">{product.price} kr</p>

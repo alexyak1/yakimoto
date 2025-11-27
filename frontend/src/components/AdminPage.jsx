@@ -16,7 +16,7 @@ function AdminPage({ token, login }) {
     const [createSuccess, setCreateSuccess] = useState(false);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
-    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "", description: "", sale_price: "" });
+    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "", description: "", sale_price: "", discount_percent: "", sale_type: "percent", category_ids: [] });
     const [editImageFiles, setEditImageFiles] = useState([]);
     const [description, setDescription] = useState("");
     const [isUploading, setIsUploading] = useState(false);
@@ -26,6 +26,9 @@ function AdminPage({ token, login }) {
     const [gsm, setGsm] = useState("");
     const [ageGroup, setAgeGroup] = useState("");
     const [salePrice, setSalePrice] = useState("");
+    const [discountPercent, setDiscountPercent] = useState("");
+    const [saleType, setSaleType] = useState("percent"); // "percent" or "price"
+    const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
     const [categories, setCategories] = useState([]);
     const [categoryName, setCategoryName] = useState("");
     const [categoryImage, setCategoryImage] = useState(null);
@@ -178,11 +181,18 @@ function AdminPage({ token, login }) {
                 }, {})
             ));
             if (category) formData.append("category", category);
+            if (selectedCategoryIds.length > 0) {
+                formData.append("category_ids", selectedCategoryIds.join(','));
+            }
             if (color) formData.append("color", color);
             if (gsm) formData.append("gsm", gsm);
             if (ageGroup) formData.append("age_group", ageGroup);
             if (description) formData.append("description", description);
-            if (salePrice) formData.append("sale_price", salePrice);
+            if (discountPercent && discountPercent !== "" && discountPercent !== "0") {
+                formData.append("discount_percent", discountPercent);
+            } else if (salePrice && salePrice !== "" && salePrice !== "0") {
+                formData.append("sale_price", salePrice);
+            }
             for (let file of imageFiles) {
                 formData.append("images", file);
             }
@@ -204,6 +214,9 @@ function AdminPage({ token, login }) {
             setAgeGroup("");
             setDescription("");
             setSalePrice("");
+            setDiscountPercent("");
+            setSaleType("percent");
+            setSelectedCategoryIds([]);
             await fetchProducts();
             
             // Clear success message after 2 seconds
@@ -249,6 +262,9 @@ function AdminPage({ token, login }) {
             ([size, quantity]) => ({ size, quantity })
         );
 
+        // Get category IDs from product categories
+        const categoryIds = product.categories ? product.categories.map(c => c.id) : [];
+
         setEditForm({
             name: product.name,
             price: product.price,
@@ -259,6 +275,8 @@ function AdminPage({ token, login }) {
             age_group: product.age_group || "",
             description: product.description || "",
             sale_price: product.sale_price || "",
+            discount_percent: product.discount_percent || "",
+            category_ids: categoryIds,
         });
     };
 
@@ -296,11 +314,18 @@ function AdminPage({ token, login }) {
             formData.append("price", editForm.price);
             formData.append("sizes", JSON.stringify(sizesObj));
             if (editForm.category) formData.append("category", editForm.category);
+            if (editForm.category_ids && editForm.category_ids.length > 0) {
+                formData.append("category_ids", editForm.category_ids.join(','));
+            }
             if (editForm.color) formData.append("color", editForm.color);
             if (editForm.gsm) formData.append("gsm", editForm.gsm);
             if (editForm.age_group) formData.append("age_group", editForm.age_group);
             if (editForm.description) formData.append("description", editForm.description);
-            if (editForm.sale_price) formData.append("sale_price", editForm.sale_price);
+            if (editForm.discount_percent && editForm.discount_percent !== "") {
+                formData.append("discount_percent", editForm.discount_percent);
+            } else if (editForm.sale_price && editForm.sale_price !== "") {
+                formData.append("sale_price", editForm.sale_price);
+            }
             for (let file of editImageFiles) {
                 formData.append("images", file);
             }
@@ -704,16 +729,72 @@ function AdminPage({ token, login }) {
                     className="border p-1 mr-2"
                 />
 
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Reapris (lämna tomt om ingen rea)</label>
-                <input
-                    type="number"
-                    placeholder="Reapris"
-                    value={salePrice}
-                    onChange={(e) => setSalePrice(e.target.value)}
-                    className="border p-1 mr-2"
-                />
+                <div className="mt-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rabatt / Reapris</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                            value={saleType}
+                            onChange={(e) => {
+                                setSaleType(e.target.value);
+                                setSalePrice("");
+                                setDiscountPercent("");
+                            }}
+                            className="border p-1 rounded"
+                        >
+                            <option value="percent">Rabatt %</option>
+                            <option value="price">Reapris</option>
+                        </select>
+                        {saleType === "percent" ? (
+                            <>
+                                <input
+                                    type="number"
+                                    placeholder="50 för 50%"
+                                    value={discountPercent}
+                                    onChange={(e) => setDiscountPercent(e.target.value)}
+                                    className="border p-1 w-32"
+                                    min="0"
+                                    max="100"
+                                />
+                                <span className="text-sm text-gray-500">%</span>
+                                {discountPercent && price && (
+                                    <span className="text-sm text-gray-600">
+                                        = {Math.round(price * (1 - discountPercent / 100))} kr
+                                    </span>
+                                )}
+                            </>
+                        ) : (
+                            <input
+                                type="number"
+                                placeholder="Reapris"
+                                value={salePrice}
+                                onChange={(e) => setSalePrice(e.target.value)}
+                                className="border p-1 w-32"
+                            />
+                        )}
+                    </div>
+                </div>
 
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategori (t.ex. "judo gi")</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategorier (välj en eller flera)</label>
+                <div className="space-y-2 mb-2">
+                    {categories.map((cat) => (
+                        <label key={cat.id} className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={selectedCategoryIds.includes(cat.id)}
+                                onChange={(e) => {
+                                    if (e.target.checked) {
+                                        setSelectedCategoryIds([...selectedCategoryIds, cat.id]);
+                                    } else {
+                                        setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== cat.id));
+                                    }
+                                }}
+                                className="border p-1"
+                            />
+                            <span>{cat.name}</span>
+                        </label>
+                    ))}
+                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Eller ange kategori manuellt (för bakåtkompatibilitet)</label>
                 <input
                     type="text"
                     placeholder="Kategori"
@@ -853,17 +934,83 @@ function AdminPage({ token, login }) {
                                     className="border p-1 mr-2"
                                 />
                                 <div className="mt-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Reapris (lämna tomt om ingen rea)</label>
-                                    <input
-                                        name="sale_price"
-                                        value={editForm.sale_price}
-                                        onChange={(e) => setEditForm((prev) => ({ ...prev, sale_price: e.target.value }))}
-                                        className="border p-1 mr-2"
-                                        placeholder="Reapris"
-                                    />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Rabatt / Reapris</label>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <select
+                                            value={editForm.sale_type || "percent"}
+                                            onChange={(e) => {
+                                                setEditForm((prev) => ({
+                                                    ...prev,
+                                                    sale_type: e.target.value,
+                                                    sale_price: "",
+                                                    discount_percent: ""
+                                                }));
+                                            }}
+                                            className="border p-1 rounded"
+                                        >
+                                            <option value="percent">Rabatt %</option>
+                                            <option value="price">Reapris</option>
+                                        </select>
+                                        {editForm.sale_type === "percent" ? (
+                                            <>
+                                                <input
+                                                    name="discount_percent"
+                                                    type="number"
+                                                    value={editForm.discount_percent}
+                                                    onChange={(e) => setEditForm((prev) => ({ ...prev, discount_percent: e.target.value }))}
+                                                    className="border p-1 w-32"
+                                                    placeholder="50 för 50%"
+                                                    min="0"
+                                                    max="100"
+                                                />
+                                                <span className="text-sm text-gray-500">%</span>
+                                                {editForm.discount_percent && editForm.price && (
+                                                    <span className="text-sm text-gray-600">
+                                                        = {Math.round(editForm.price * (1 - editForm.discount_percent / 100))} kr
+                                                    </span>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <input
+                                                name="sale_price"
+                                                type="number"
+                                                value={editForm.sale_price}
+                                                onChange={(e) => setEditForm((prev) => ({ ...prev, sale_price: e.target.value }))}
+                                                className="border p-1 w-32"
+                                                placeholder="Reapris"
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="mt-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Kategorier (välj en eller flera)</label>
+                                    <div className="space-y-2 mb-2">
+                                        {categories.map((cat) => (
+                                            <label key={cat.id} className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editForm.category_ids && editForm.category_ids.includes(cat.id)}
+                                                    onChange={(e) => {
+                                                        const currentIds = editForm.category_ids || [];
+                                                        if (e.target.checked) {
+                                                            setEditForm((prev) => ({
+                                                                ...prev,
+                                                                category_ids: [...currentIds, cat.id]
+                                                            }));
+                                                        } else {
+                                                            setEditForm((prev) => ({
+                                                                ...prev,
+                                                                category_ids: currentIds.filter(id => id !== cat.id)
+                                                            }));
+                                                        }
+                                                    }}
+                                                    className="border p-1"
+                                                />
+                                                <span>{cat.name}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Eller ange kategori manuellt (för bakåtkompatibilitet)</label>
                                     <input
                                         name="category"
                                         value={editForm.category}

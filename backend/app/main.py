@@ -188,6 +188,11 @@ def setup_database():
         conn.execute("ALTER TABLE products ADD COLUMN sale_price INTEGER")
     except sqlite3.OperationalError:
         pass  # Column already exists
+    
+    try:
+        conn.execute("ALTER TABLE products ADD COLUMN discount_percent INTEGER")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS product_images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -219,6 +224,16 @@ def setup_database():
             image_filename TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS product_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER,
+            category_id INTEGER,
+            FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE,
+            FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE,
+            UNIQUE(product_id, category_id)
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -248,8 +263,55 @@ def migrate_existing_products():
     conn.commit()
     conn.close()
 
+def migrate_categories_to_many_to_many():
+    """Migrate existing single category field to many-to-many relationship"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Check if migration already done
+    cursor.execute("SELECT COUNT(*) as count FROM product_categories")
+    already_migrated = cursor.fetchone()["count"] > 0
+    
+    if already_migrated:
+        conn.close()
+        return
+    
+    # Get all products with categories
+    cursor.execute("SELECT id, category FROM products WHERE category IS NOT NULL AND category != ''")
+    products = cursor.fetchall()
+    
+    for product in products:
+        product_id = product["id"]
+        category_name = product["category"]
+        
+        if category_name:
+            # Find or create category
+            cursor.execute("SELECT id FROM categories WHERE name = ?", (category_name,))
+            category = cursor.fetchone()
+            
+            if not category:
+                # Create category if it doesn't exist
+                cursor.execute("INSERT INTO categories (name) VALUES (?)", (category_name,))
+                category_id = cursor.lastrowid
+            else:
+                category_id = category["id"]
+            
+            # Link product to category
+            try:
+                cursor.execute(
+                    "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+                    (product_id, category_id)
+                )
+            except sqlite3.IntegrityError:
+                # Already exists, skip
+                pass
+    
+    conn.commit()
+    conn.close()
+
 setup_database()
 migrate_existing_products()
+migrate_categories_to_many_to_many()
 
 def verify_token(authorization: str = Header(...)):
     print("AUTH HEADER:", authorization)
@@ -282,6 +344,62 @@ def get_product_images(cursor, product_id):
     main_image = next((img["filename"] for img in image_rows if img["is_main"]), images[0] if images else None)
     return images, main_image
 
+def get_product_categories(cursor, product_id):
+    """Helper function to fetch product categories"""
+    cursor.execute("""
+        SELECT c.id, c.name 
+        FROM categories c
+        INNER JOIN product_categories pc ON c.id = pc.category_id
+        WHERE pc.product_id = ?
+        ORDER BY c.name
+    """, (product_id,))
+    category_rows = cursor.fetchall()
+    return [{"id": cat["id"], "name": cat["name"]} for cat in category_rows]
+
+def ensure_sale_price_from_discount(product_dict):
+    """Ensure sale_price is calculated from discount_percent if discount_percent exists"""
+    discount_percent = product_dict.get("discount_percent")
+    price = product_dict.get("price")
+    current_sale_price = product_dict.get("sale_price")
+    
+    # Convert discount_percent to int if it's a string or None
+    if discount_percent is not None:
+        try:
+            discount_percent = int(discount_percent) if not isinstance(discount_percent, int) else discount_percent
+        except (ValueError, TypeError):
+            discount_percent = None
+    
+    # Convert price to int if needed
+    if price is not None:
+        try:
+            price = int(price) if not isinstance(price, int) else price
+        except (ValueError, TypeError):
+            price = None
+    
+    # If discount_percent exists and is valid, recalculate sale_price
+    if discount_percent is not None and discount_percent > 0 and price and price > 0:
+        calculated_sale_price = int(price * (1 - discount_percent / 100))
+        # Always use the calculated price if discount_percent is set
+        if calculated_sale_price > 0 and calculated_sale_price < price:
+            product_dict["sale_price"] = calculated_sale_price
+        else:
+            product_dict["sale_price"] = None
+    # If no discount_percent but sale_price exists and is valid, keep it
+    elif current_sale_price is not None:
+        try:
+            current_sale_price = int(current_sale_price) if not isinstance(current_sale_price, int) else current_sale_price
+            if current_sale_price > 0 and price and current_sale_price < price:
+                product_dict["sale_price"] = current_sale_price
+            else:
+                product_dict["sale_price"] = None
+        except (ValueError, TypeError):
+            product_dict["sale_price"] = None
+    else:
+        # No sale
+        product_dict["sale_price"] = None
+    
+    return product_dict
+
 @app.get("/products")
 def read_products():
     conn = get_db()
@@ -300,6 +418,15 @@ def read_products():
         product_dict["images"] = images
         product_dict["main_image"] = main_image
 
+        # Fetch categories for each product
+        categories = get_product_categories(cursor, product["id"])
+        product_dict["categories"] = categories
+        # Keep backward compatibility with single category field
+        product_dict["category"] = categories[0]["name"] if categories else product_dict.get("category")
+
+        # Ensure sale_price is calculated from discount_percent if needed
+        product_dict = ensure_sale_price_from_discount(product_dict)
+
         result.append(product_dict)
 
     conn.close()
@@ -311,8 +438,14 @@ def get_grouped_products(category: str):
     conn = get_db()
     cursor = conn.cursor()
 
-    # Fetch products in the category
-    cursor.execute("SELECT * FROM products WHERE category = ?", (category,))
+    # Fetch products in the category using the junction table
+    cursor.execute("""
+        SELECT DISTINCT p.* 
+        FROM products p
+        INNER JOIN product_categories pc ON p.id = pc.product_id
+        INNER JOIN categories c ON pc.category_id = c.id
+        WHERE c.name = ?
+    """, (category,))
     products = cursor.fetchall()
 
     result = []
@@ -323,6 +456,15 @@ def get_grouped_products(category: str):
         images, main_image = get_product_images(cursor, product["id"])
         product_dict["images"] = images
         product_dict["main_image"] = main_image
+
+        # Fetch categories for each product
+        categories = get_product_categories(cursor, product["id"])
+        product_dict["categories"] = categories
+        # Keep backward compatibility with single category field
+        product_dict["category"] = categories[0]["name"] if categories else product_dict.get("category")
+
+        # Ensure sale_price is calculated from discount_percent if needed
+        product_dict = ensure_sale_price_from_discount(product_dict)
 
         result.append(product_dict)
 
@@ -335,8 +477,14 @@ def get_products_by_category(category: str):
     conn = get_db()
     cursor = conn.cursor()
 
-    # Fetch products in the category
-    cursor.execute("SELECT * FROM products WHERE category = ?", (category,))
+    # Fetch products in the category using the junction table
+    cursor.execute("""
+        SELECT DISTINCT p.* 
+        FROM products p
+        INNER JOIN product_categories pc ON p.id = pc.product_id
+        INNER JOIN categories c ON pc.category_id = c.id
+        WHERE c.name = ?
+    """, (category,))
     products = cursor.fetchall()
 
     result = []
@@ -347,6 +495,15 @@ def get_products_by_category(category: str):
         images, main_image = get_product_images(cursor, product["id"])
         product_dict["images"] = images
         product_dict["main_image"] = main_image
+
+        # Fetch categories for each product
+        categories = get_product_categories(cursor, product["id"])
+        product_dict["categories"] = categories
+        # Keep backward compatibility with single category field
+        product_dict["category"] = categories[0]["name"] if categories else product_dict.get("category")
+
+        # Ensure sale_price is calculated from discount_percent if needed
+        product_dict = ensure_sale_price_from_discount(product_dict)
 
         result.append(product_dict)
 
@@ -500,11 +657,21 @@ def get_product(product_id: int):
 
     # Fetch related images
     images, main_image = get_product_images(cursor, product_id)
+    
+    # Fetch categories
+    categories = get_product_categories(cursor, product_id)
+    
     conn.close()
 
     product_dict = dict(product)
     product_dict["images"] = images
     product_dict["main_image"] = main_image
+    product_dict["categories"] = categories
+    # Keep backward compatibility with single category field
+    product_dict["category"] = categories[0]["name"] if categories else product_dict.get("category")
+
+    # Ensure sale_price is calculated from discount_percent if needed
+    product_dict = ensure_sale_price_from_discount(product_dict)
 
     return product_dict
 
@@ -587,18 +754,75 @@ def create_product(
     gsm: str = Form(None),
     age_group: str = Form(None),
     description: str = Form(None),
-    sale_price: int = Form(None),
+    sale_price: str = Form(None),
+    discount_percent: str = Form(None),
+    category_ids: str = Form(None),  # Comma-separated category IDs
     auth=Depends(verify_token),
 ):
     conn = get_db()
     cursor = conn.cursor()
 
+    # Calculate sale_price from discount_percent if provided
+    # Handle empty strings and convert to None
+    discount_percent_val = None
+    if discount_percent is not None and discount_percent != "":
+        try:
+            discount_percent_val = int(discount_percent)
+        except (ValueError, TypeError):
+            discount_percent_val = None
+    
+    sale_price_val = None
+    if sale_price is not None and sale_price != "":
+        try:
+            sale_price_val = int(sale_price)
+        except (ValueError, TypeError):
+            sale_price_val = None
+    
+    final_sale_price = None
+    discount_percent_to_save = None
+    if discount_percent_val is not None and discount_percent_val > 0:
+        # Calculate sale price from percentage discount
+        final_sale_price = int(price * (1 - discount_percent_val / 100))
+        discount_percent_to_save = discount_percent_val
+    elif sale_price_val is not None and sale_price_val > 0:
+        # Use provided sale_price directly
+        final_sale_price = sale_price_val
+        discount_percent_to_save = None
+    else:
+        final_sale_price = None
+        discount_percent_to_save = None
+
     # Insert product (without image column)
     cursor.execute(
-        "INSERT INTO products (name, price, sizes, category, color, gsm, age_group, description, sale_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (name, price, sizes, category, color, gsm, age_group, description, sale_price)
+        "INSERT INTO products (name, price, sizes, category, color, gsm, age_group, description, sale_price, discount_percent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (name, price, sizes, category, color, gsm, age_group, description, final_sale_price, discount_percent_to_save)
     )
     product_id = cursor.lastrowid
+
+    # Handle multiple categories
+    if category_ids:
+        category_id_list = [int(cid.strip()) for cid in category_ids.split(',') if cid.strip()]
+        for cat_id in category_id_list:
+            try:
+                cursor.execute(
+                    "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+                    (product_id, cat_id)
+                )
+            except sqlite3.IntegrityError:
+                # Already exists, skip
+                pass
+    # Backward compatibility: if old category field is provided, use it
+    elif category:
+        cursor.execute("SELECT id FROM categories WHERE name = ?", (category,))
+        cat = cursor.fetchone()
+        if cat:
+            try:
+                cursor.execute(
+                    "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+                    (product_id, cat["id"])
+                )
+            except sqlite3.IntegrityError:
+                pass
 
     # Save images - set first image as main
     for idx, image in enumerate(images):
@@ -634,6 +858,31 @@ def create_product(
             (product_id, filename, is_main)
         )
 
+    # Handle multiple categories
+    if category_ids:
+        category_id_list = [int(cid.strip()) for cid in category_ids.split(',') if cid.strip()]
+        for cat_id in category_id_list:
+            try:
+                cursor.execute(
+                    "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+                    (product_id, cat_id)
+                )
+            except sqlite3.IntegrityError:
+                # Already exists, skip
+                pass
+    # Backward compatibility: if old category field is provided, use it
+    elif category:
+        cursor.execute("SELECT id FROM categories WHERE name = ?", (category,))
+        cat = cursor.fetchone()
+        if cat:
+            try:
+                cursor.execute(
+                    "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+                    (product_id, cat["id"])
+                )
+            except sqlite3.IntegrityError:
+                pass
+
     conn.commit()
     conn.close()
 
@@ -652,16 +901,74 @@ async def update_product(
     age_group: str = Form(None),
     description: str = Form(None),
     sale_price: int = Form(None),
+    discount_percent: int = Form(None),
+    category_ids: str = Form(None),  # Comma-separated category IDs
     auth=Depends(verify_token),
 ):
     conn = get_db()
     cursor = conn.cursor()
     
+    # Calculate sale_price from discount_percent if provided
+    # Handle empty strings and convert to None
+    discount_percent_val = None
+    if discount_percent is not None and discount_percent != "":
+        try:
+            discount_percent_val = int(discount_percent)
+        except (ValueError, TypeError):
+            discount_percent_val = None
+    
+    sale_price_val = None
+    if sale_price is not None and sale_price != "":
+        try:
+            sale_price_val = int(sale_price)
+        except (ValueError, TypeError):
+            sale_price_val = None
+    
+    final_sale_price = None
+    discount_percent_to_save = None
+    if discount_percent_val is not None and discount_percent_val > 0:
+        # Calculate sale price from percentage discount
+        final_sale_price = int(price * (1 - discount_percent_val / 100))
+        discount_percent_to_save = discount_percent_val
+    elif sale_price_val is not None and sale_price_val > 0:
+        # Use provided sale_price directly
+        final_sale_price = sale_price_val
+        discount_percent_to_save = None
+    else:
+        final_sale_price = None
+        discount_percent_to_save = None
+    
     # Update product basic info
     cursor.execute(
-        "UPDATE products SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, age_group = ?, description = ?, sale_price = ? WHERE id = ?",
-        (name, price, sizes, category, color, gsm, age_group, description, sale_price, product_id),
+        "UPDATE products SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, age_group = ?, description = ?, sale_price = ?, discount_percent = ? WHERE id = ?",
+        (name, price, sizes, category, color, gsm, age_group, description, final_sale_price, discount_percent_to_save, product_id),
     )
+    
+    # Update categories - remove old ones and add new ones
+    cursor.execute("DELETE FROM product_categories WHERE product_id = ?", (product_id,))
+    
+    if category_ids:
+        category_id_list = [int(cid.strip()) for cid in category_ids.split(',') if cid.strip()]
+        for cat_id in category_id_list:
+            try:
+                cursor.execute(
+                    "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+                    (product_id, cat_id)
+                )
+            except sqlite3.IntegrityError:
+                pass
+    # Backward compatibility: if old category field is provided, use it
+    elif category:
+        cursor.execute("SELECT id FROM categories WHERE name = ?", (category,))
+        cat = cursor.fetchone()
+        if cat:
+            try:
+                cursor.execute(
+                    "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
+                    (product_id, cat["id"])
+                )
+            except sqlite3.IntegrityError:
+                pass
     
     # Handle new images if provided - parse form data manually to handle optional files
     form = await request.form()

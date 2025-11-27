@@ -158,7 +158,7 @@ export default function ProductDetailPage({ onAddToCart }) {
             <div>
                 <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
                 <div className="mb-4">
-                  {product.sale_price ? (
+                  {product.sale_price && product.sale_price > 0 && product.sale_price < product.price ? (
                     <div className="flex items-center gap-3 flex-wrap">
                       <p className="text-2xl text-blue-700 font-bold">{product.sale_price} kr</p>
                       <p className="text-xl text-gray-400 line-through">{product.price} kr</p>

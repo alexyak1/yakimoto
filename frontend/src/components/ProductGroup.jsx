@@ -107,7 +107,7 @@ export const ProductGroup = ({ category }) => {
                 </h3>
                 {product.price && (
                   <div className="flex items-center gap-2 flex-wrap">
-                    {product.sale_price ? (
+                    {product.sale_price && product.sale_price > 0 && product.sale_price < product.price ? (
                       <>
                         <p className="text-white font-semibold text-lg">{product.sale_price} kr</p>
                         <p className="text-white/60 line-through text-sm">{product.price} kr</p>
