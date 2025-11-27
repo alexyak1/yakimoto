@@ -39,6 +39,7 @@ function AdminPage({ token, login }) {
     const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
     const [isGeneratingThumbnails, setIsGeneratingThumbnails] = useState(false);
     const [thumbnailResult, setThumbnailResult] = useState(null);
+    const [isReorderingCategories, setIsReorderingCategories] = useState(false);
 
     useEffect(() => {
         fetchProducts();
@@ -162,6 +163,40 @@ function AdminPage({ token, login }) {
             alert("Kunde inte uppdatera kategori");
         } finally {
             setIsUpdatingCategory(false);
+        }
+    };
+
+    const moveCategory = (index, direction) => {
+        if (direction === 'up' && index === 0) return;
+        if (direction === 'down' && index === categories.length - 1) return;
+        
+        const newCategories = [...categories];
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        [newCategories[index], newCategories[newIndex]] = [newCategories[newIndex], newCategories[index]];
+        setCategories(newCategories);
+    };
+
+    const saveCategoryOrder = async () => {
+        setIsReorderingCategories(true);
+        try {
+            const categoryOrders = {};
+            categories.forEach((cat, index) => {
+                categoryOrders[cat.id] = index;
+            });
+            
+            await axios.post(`${API_URL}/categories/reorder`, categoryOrders, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            await fetchCategories();
+            alert("Kategoriordning sparad!");
+        } catch (error) {
+            console.error("Failed to save category order", error);
+            alert("Kunde inte spara kategoriordning");
+            // Revert to server state on error
+            await fetchCategories();
+        } finally {
+            setIsReorderingCategories(false);
         }
     };
 
@@ -623,13 +658,44 @@ function AdminPage({ token, login }) {
 
                 {/* Existing Categories */}
                 <div className="mt-6">
-                    <h4 className="font-semibold mb-2">Befintliga kategorier</h4>
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold">Befintliga kategorier</h4>
+                        {categories.length > 1 && (
+                            <button
+                                onClick={saveCategoryOrder}
+                                disabled={isReorderingCategories}
+                                className={`px-3 py-1 text-sm rounded ${isReorderingCategories ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} text-white`}
+                            >
+                                {isReorderingCategories ? 'Sparar...' : 'Spara ordning'}
+                            </button>
+                        )}
+                    </div>
                     {categories.length === 0 ? (
                         <p className="text-gray-500 text-sm">Inga kategorier ännu</p>
                     ) : (
                         <div className="space-y-2">
-                            {categories.map((cat) => (
-                                <div key={cat.id} className="border p-3 rounded">
+                            {categories.map((cat, index) => (
+                                <div key={cat.id} className="border p-3 rounded flex items-start gap-3">
+                                    {/* Order controls */}
+                                    <div className="flex flex-col gap-1 pt-1">
+                                        <button
+                                            onClick={() => moveCategory(index, 'up')}
+                                            disabled={index === 0}
+                                            className={`px-2 py-1 text-xs rounded ${index === 0 ? 'bg-gray-200 cursor-not-allowed text-gray-400' : 'bg-gray-300 hover:bg-gray-400'} text-gray-700`}
+                                            title="Flytta upp"
+                                        >
+                                            ↑
+                                        </button>
+                                        <button
+                                            onClick={() => moveCategory(index, 'down')}
+                                            disabled={index === categories.length - 1}
+                                            className={`px-2 py-1 text-xs rounded ${index === categories.length - 1 ? 'bg-gray-200 cursor-not-allowed text-gray-400' : 'bg-gray-300 hover:bg-gray-400'} text-gray-700`}
+                                            title="Flytta ner"
+                                        >
+                                            ↓
+                                        </button>
+                                    </div>
+                                    <div className="flex-1">
                                     {editCategoryId === cat.id ? (
                                         <div className="space-y-3">
                                             <div>
@@ -712,6 +778,7 @@ function AdminPage({ token, login }) {
                                             </div>
                                         </div>
                                     )}
+                                    </div>
                                 </div>
                             ))}
                         </div>

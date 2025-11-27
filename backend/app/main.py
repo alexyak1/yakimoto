@@ -221,9 +221,16 @@ def setup_database():
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,
-            image_filename TEXT
+            image_filename TEXT,
+            display_order INTEGER DEFAULT 0
         )
     """)
+    
+    # Add display_order column if it doesn't exist (for existing databases)
+    try:
+        conn.execute("ALTER TABLE categories ADD COLUMN display_order INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS product_categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -309,9 +316,29 @@ def migrate_categories_to_many_to_many():
     conn.commit()
     conn.close()
 
+def initialize_category_display_order():
+    """Initialize display_order for existing categories that don't have it set"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get all categories without display_order or with NULL display_order
+    cursor.execute("SELECT id FROM categories WHERE display_order IS NULL")
+    categories = cursor.fetchall()
+    
+    # Set display_order based on current id order (preserve existing order)
+    for index, category in enumerate(categories):
+        cursor.execute(
+            "UPDATE categories SET display_order = ? WHERE id = ?",
+            (index, category["id"])
+        )
+    
+    conn.commit()
+    conn.close()
+
 setup_database()
 migrate_existing_products()
 migrate_categories_to_many_to_many()
+initialize_category_display_order()
 
 def verify_token(authorization: str = Header(...)):
     print("AUTH HEADER:", authorization)
@@ -513,10 +540,10 @@ def get_products_by_category(category: str):
 # Category management endpoints
 @app.get("/categories")
 def get_categories():
-    """Get all categories"""
+    """Get all categories ordered by display_order"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM categories")
+    cursor.execute("SELECT * FROM categories ORDER BY display_order ASC, id ASC")
     categories = cursor.fetchall()
     conn.close()
     return [dict(cat) for cat in categories]
@@ -623,6 +650,31 @@ def update_category(
     conn.commit()
     conn.close()
     return {"message": "Category updated", "id": category_id, "name": name}
+
+@app.post("/categories/reorder")
+def reorder_categories(
+    category_orders: dict = Body(...),
+    auth=Depends(verify_token),
+):
+    """Update the display order of categories"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # category_orders should be a dict like {category_id: display_order, ...}
+    for category_id, display_order in category_orders.items():
+        try:
+            category_id_int = int(category_id)
+            display_order_int = int(display_order)
+            cursor.execute(
+                "UPDATE categories SET display_order = ? WHERE id = ?",
+                (display_order_int, category_id_int)
+            )
+        except (ValueError, TypeError):
+            continue  # Skip invalid entries
+    
+    conn.commit()
+    conn.close()
+    return {"message": "Category order updated"}
 
 @app.delete("/categories/{category_name}")
 def delete_category(category_name: str, auth=Depends(verify_token)):
