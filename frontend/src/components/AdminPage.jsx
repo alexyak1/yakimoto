@@ -241,6 +241,15 @@ function AdminPage({ token, login }) {
 
     const handleSetMainImage = async (productId, filename) => {
         try {
+            // Optimistically update the local state immediately
+            setProducts(prevProducts => 
+                prevProducts.map(product => 
+                    product.id === productId 
+                        ? { ...product, main_image: filename }
+                        : product
+                )
+            );
+            
             const formData = new FormData();
             formData.append("filename", filename);
             
@@ -248,10 +257,13 @@ function AdminPage({ token, login }) {
                 headers: { Authorization: `Bearer ${token}` },
             });
             
+            // Fetch fresh data from server to ensure consistency
             await fetchProducts();
         } catch (error) {
             console.error("Failed to set main image", error);
             alert("Kunde inte uppdatera huvudbild");
+            // Revert optimistic update on error
+            await fetchProducts();
         }
     };
 
@@ -1095,7 +1107,7 @@ function AdminPage({ token, login }) {
                                             {product.images.map((img, idx) => {
                                                 const isMain = product.main_image === img || (idx === 0 && !product.main_image);
                                                 return (
-                                                    <div key={idx} className="relative">
+                                                    <div key={`${product.id}-${img}`} className="relative">
                                                         <SmartImage
                                                             src={img}
                                                             alt="Produktbild"
