@@ -107,13 +107,22 @@ export default function ProductDetailPage({ onAddToCart }) {
             return;
         }
 
-        const added = onAddToCart({
+        // For custom orders, if product has discount, use full price (not sale price)
+        const hasDiscount = product.sale_price && product.sale_price > 0 && product.sale_price < product.price;
+        const productToAdd = {
             ...product,
             selectedSize: `${trimmed} (beställning)`,
             quantity: 1,
             available: 1,
             isSpecialOrder: true,
-        });
+        };
+
+        // If product has discount, remove sale_price so it uses full price
+        if (hasDiscount) {
+            productToAdd.sale_price = null;
+        }
+
+        const added = onAddToCart(productToAdd);
 
         if (added) {
             toast.success(`${product.name} (${trimmed}) beställning tillagd i varukorgen`);
@@ -265,13 +274,23 @@ export default function ProductDetailPage({ onAddToCart }) {
                                     placeholder="t.ex. 150 cm, S, 44, etc."
                                     className="w-full border rounded px-3 py-2"
                                 />
+                                {product.sale_price && product.sale_price > 0 && product.sale_price < product.price && (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                                        <p className="text-sm text-yellow-800 font-medium">
+                                            ⚠️ Specialbeställningar gäller fullpris: {product.price} kr
+                                        </p>
+                                        <p className="text-xs text-yellow-700 mt-1">
+                                            Rabatten gäller endast för storlekar i lager.
+                                        </p>
+                                    </div>
+                                )}
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
                                         onClick={handleSpecialOrderAdd}
                                         className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
                                     >
-                                        Lägg i varukorg (beställning)
+                                        Lägg i varukorg (beställning) – {product.sale_price && product.sale_price > 0 && product.sale_price < product.price ? product.price : (product.sale_price || product.price)} kr
                                     </button>
                                     <button
                                         type="button"
