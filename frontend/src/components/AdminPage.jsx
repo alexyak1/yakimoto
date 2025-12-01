@@ -302,6 +302,26 @@ function AdminPage({ token, login }) {
         }
     };
 
+    const handleDeleteImage = async (productId, filename) => {
+        if (!confirm(`Är du säker på att du vill ta bort denna bild?`)) {
+            return;
+        }
+        
+        try {
+            // URL encode the filename to handle special characters
+            const encodedFilename = encodeURIComponent(filename);
+            await axios.delete(`${API_URL}/products/${productId}/images/${encodedFilename}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            // Fetch fresh data from server
+            await fetchProducts();
+        } catch (error) {
+            console.error("Failed to delete image", error);
+            alert("Kunde inte ta bort bild");
+        }
+    };
+
     const startEdit = (product) => {
         setEditProductId(product.id);
 
@@ -1174,7 +1194,7 @@ function AdminPage({ token, login }) {
                                             {product.images.map((img, idx) => {
                                                 const isMain = product.main_image === img || (idx === 0 && !product.main_image);
                                                 return (
-                                                    <div key={`${product.id}-${img}`} className="relative">
+                                                    <div key={`${product.id}-${img}`} className="relative group">
                                                         <SmartImage
                                                             src={img}
                                                             alt="Produktbild"
@@ -1189,6 +1209,16 @@ function AdminPage({ token, login }) {
                                                                 Huvud
                                                             </div>
                                                         )}
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteImage(product.id, img);
+                                                            }}
+                                                            className="absolute top-0 left-0 bg-red-600 text-white text-xs w-6 h-6 rounded-full hover:bg-red-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            title="Ta bort bild"
+                                                        >
+                                                            ×
+                                                        </button>
                                                     </div>
                                                 );
                                             })}

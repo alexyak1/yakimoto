@@ -1105,6 +1105,69 @@ def set_main_image(
     conn.close()
     return {"message": "Main image updated", "filename": filename}
 
+@app.delete("/products/{product_id}/images/{filename}")
+def delete_product_image(
+    product_id: int,
+    filename: str,
+    auth=Depends(verify_token),
+):
+    """Delete an image from a product"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Verify the image belongs to this product
+    cursor.execute(
+        "SELECT id, is_main FROM product_images WHERE product_id = ? AND filename = ?",
+        (product_id, filename)
+    )
+    image = cursor.fetchone()
+    if not image:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Image not found for this product")
+    
+    was_main = image["is_main"] == 1
+    
+    # Delete the image file from disk
+    image_path = os.path.join(UPLOAD_DIR, filename)
+    if os.path.exists(image_path):
+        try:
+            os.remove(image_path)
+        except Exception as e:
+            print(f"Error deleting image file {image_path}: {e}")
+    
+    # Delete the thumbnail if it exists
+    base_name = os.path.splitext(filename)[0]
+    thumbnail_filename = f"{base_name}_thumb.jpg"
+    thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_filename)
+    if os.path.exists(thumbnail_path):
+        try:
+            os.remove(thumbnail_path)
+        except Exception as e:
+            print(f"Error deleting thumbnail {thumbnail_path}: {e}")
+    
+    # Remove the image record from database
+    cursor.execute(
+        "DELETE FROM product_images WHERE product_id = ? AND filename = ?",
+        (product_id, filename)
+    )
+    
+    # If this was the main image, set another image as main (if any exist)
+    if was_main:
+        cursor.execute(
+            "SELECT id FROM product_images WHERE product_id = ? ORDER BY id ASC LIMIT 1",
+            (product_id,)
+        )
+        next_image = cursor.fetchone()
+        if next_image:
+            cursor.execute(
+                "UPDATE product_images SET is_main = 1 WHERE id = ?",
+                (next_image["id"],)
+            )
+    
+    conn.commit()
+    conn.close()
+    return {"message": "Image deleted", "filename": filename}
+
 @app.delete("/products/{product_id}")
 def delete_product(product_id: int, auth=Depends(verify_token)):
     conn = get_db()
