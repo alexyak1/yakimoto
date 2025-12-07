@@ -1354,7 +1354,9 @@ def create_order(order: dict = Body(...)):
     body += f"E-post: {customer.get('email', '')}\nTelefon: {customer.get('phone', '')}\nBetalning: {payment_display}\n\n"
     body += "Produkter:\n"
     for item in items:
-        body += f"- {item.get('name')} ({item.get('selectedSize')}) x{item.get('quantity')} – {item.get('price')} kr\n"
+        color = item.get('color', '')
+        color_str = f" ({color})" if color else ""
+        body += f"- {item.get('name')}{color_str} ({item.get('selectedSize')}) x{item.get('quantity')} – {item.get('price')} kr\n"
 
 
     msg = MIMEMultipart()
@@ -1455,7 +1457,9 @@ def confirm_payment(payment_data: dict = Body(...)):
         body += f"E-post: {customer.get('email', '')}\nTelefon: {customer.get('phone', '')}\nBetalning: Stripe (Betalning genomförd)\n\n"
         body += "Produkter:\n"
         for item in items:
-            body += f"- {item.get('name')} ({item.get('selectedSize')}) x{item.get('quantity')} – {item.get('price')} kr\n"
+            color = item.get('color', '')
+            color_str = f" ({color})" if color else ""
+            body += f"- {item.get('name')}{color_str} ({item.get('selectedSize')}) x{item.get('quantity')} – {item.get('price')} kr\n"
 
         msg = MIMEMultipart()
         msg["From"] = os.getenv("SMTP_USER")
