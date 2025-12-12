@@ -29,7 +29,22 @@ export const ProductList = () => {
 
   const getStockStatus = (sizesJson) => {
     const sizes = JSON.parse(sizesJson || '{}');
-    const total = Object.values(sizes).reduce((sum, qty) => sum + qty, 0);
+    let total = 0;
+    
+    Object.values(sizes).forEach((value) => {
+      // Handle new location-based format: {"online": 2, "club": 1}
+      if (typeof value === 'object' && value !== null && ("online" in value || "club" in value)) {
+        total += (value.online || 0) + (value.club || 0);
+      }
+      // Handle old intermediate format: {"quantity": 5, "location": "online"}
+      else if (typeof value === 'object' && value !== null && "quantity" in value) {
+        total += value.quantity || 0;
+      }
+      // Handle old format (just number)
+      else {
+        total += typeof value === 'number' ? value : 0;
+      }
+    });
 
     if (total === 0) return 'Slut i lager';
     if (total <= 2) return 'Lågt i lager';
