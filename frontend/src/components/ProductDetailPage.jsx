@@ -74,7 +74,27 @@ export default function ProductDetailPage({ onAddToCart }) {
     // Guard before rendering anything that depends on product
     if (!product) return <div className="p-4">Laddar...</div>;
 
-    const sizes = Object.entries(JSON.parse(product.sizes || '{}'));
+    // Parse sizes, handling old format (number), intermediate format (object with quantity/location), and new format (location-based)
+    const sizesRaw = JSON.parse(product.sizes || '{}');
+    const sizes = Object.entries(sizesRaw).map(([size, value]) => {
+        if (typeof value === 'object' && value !== null) {
+            // New location-based format: {"online": 2, "club": 1}
+            if ("online" in value || "club" in value) {
+                const total = (value.online || 0) + (value.club || 0);
+                return [size, total];
+            }
+            // Old intermediate format: {"quantity": 5, "location": "online"}
+            else if ("quantity" in value) {
+                return [size, value.quantity || 0];
+            }
+            else {
+                return [size, 0];
+            }
+        } else {
+            // Old format (just number)
+            return [size, value || 0];
+        }
+    });
     const images = product.images || [];
 
     const handleAddToCart = () => {

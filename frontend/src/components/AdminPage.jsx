@@ -11,7 +11,7 @@ function AdminPage({ token, login }) {
     const [products, setProducts] = useState([]);
     const [name, setName] = useState("");
     const [price, setPrice] = useState(0);
-    const [sizes, setSizes] = useState([{ size: '', quantity: 0 }]);
+    const [sizes, setSizes] = useState([{ size: '', quantity: 0, location: 'online' }]);
     const [imageFiles, setImageFiles] = useState([]);
     const [isCreating, setIsCreating] = useState(false);
     const [createSuccess, setCreateSuccess] = useState(false);
@@ -42,6 +42,7 @@ function AdminPage({ token, login }) {
     const [thumbnailResult, setThumbnailResult] = useState(null);
     const [isReorderingCategories, setIsReorderingCategories] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
+    const [showCreateProductModal, setShowCreateProductModal] = useState(false);
 
     useEffect(() => {
         // Check token validity on mount and periodically
@@ -220,7 +221,14 @@ function AdminPage({ token, login }) {
 
             formData.append("sizes", JSON.stringify(
                 sizes.reduce((acc, cur) => {
-                    if (cur.size.trim()) acc[cur.size] = cur.quantity;
+                    if (cur.size.trim()) {
+                        // Group by size and accumulate by location
+                        if (!acc[cur.size]) {
+                            acc[cur.size] = { online: 0, club: 0 };
+                        }
+                        const location = cur.location || 'online';
+                        acc[cur.size][location] = (acc[cur.size][location] || 0) + cur.quantity;
+                    }
                     return acc;
                 }, {})
             ));
@@ -250,7 +258,7 @@ function AdminPage({ token, login }) {
             // reset form
             setName("");
             setPrice("");
-            setSizes([{ size: '', quantity: 0 }]);
+            setSizes([{ size: '', quantity: 0, location: 'online' }]);
             setImageFiles([]);
             setCategory("");
             setColor("");
@@ -263,9 +271,10 @@ function AdminPage({ token, login }) {
             setSelectedCategoryIds([]);
             await fetchProducts();
             
-            // Clear success message after 2 seconds
+            // Clear success message after 2 seconds, then close modal
             setTimeout(() => {
                 setCreateSuccess(false);
+                setShowCreateProductModal(false);
             }, 2000);
         } catch (error) {
             console.error("Failed to create product", error);
@@ -334,9 +343,28 @@ function AdminPage({ token, login }) {
     const startEdit = (product) => {
         setEditProductId(product.id);
 
-        const parsedSizes = Object.entries(product.sizes || {}).map(
-            ([size, quantity]) => ({ size, quantity })
-        );
+        // Parse sizes - new format supports multiple locations per size: {"160": {"online": 2, "club": 1}}
+        const parsedSizes = [];
+        Object.entries(product.sizes || {}).forEach(([size, value]) => {
+            if (typeof value === 'object' && value !== null) {
+                // New location-based format: {"online": 2, "club": 1}
+                if ("online" in value || "club" in value) {
+                    if (value.online && value.online > 0) {
+                        parsedSizes.push({ size, quantity: value.online, location: 'online' });
+                    }
+                    if (value.club && value.club > 0) {
+                        parsedSizes.push({ size, quantity: value.club, location: 'club' });
+                    }
+                }
+                // Old intermediate format: {"quantity": 5, "location": "online"}
+                else if ("quantity" in value) {
+                    parsedSizes.push({ size, quantity: value.quantity || 0, location: value.location || 'online' });
+                }
+            } else {
+                // Old format (just number) - convert to online
+                parsedSizes.push({ size, quantity: value || 0, location: 'online' });
+            }
+        });
 
         // Get category IDs from product categories
         const categoryIds = product.categories ? product.categories.map(c => c.id) : [];
@@ -381,7 +409,14 @@ function AdminPage({ token, login }) {
         
         try {
             const sizesObj = editForm.sizes.reduce((acc, cur) => {
-                if (cur.size.trim()) acc[cur.size] = cur.quantity;
+                if (cur.size.trim()) {
+                    // Group by size and accumulate by location
+                    if (!acc[cur.size]) {
+                        acc[cur.size] = { online: 0, club: 0 };
+                    }
+                    const location = cur.location || 'online';
+                    acc[cur.size][location] = (acc[cur.size][location] || 0) + cur.quantity;
+                }
                 return acc;
             }, {});
 
@@ -440,7 +475,7 @@ function AdminPage({ token, login }) {
     const addEditSize = () => {
         setEditForm((prev) => ({
             ...prev,
-            sizes: [...prev.sizes, { size: "", quantity: 0 }],
+            sizes: [...prev.sizes, { size: "", quantity: 0, location: 'online' }],
         }));
     };
 
@@ -465,7 +500,7 @@ function AdminPage({ token, login }) {
     };
 
     const addSize = () => {
-        setSizes([...sizes, { size: '', quantity: 0 }]);
+        setSizes([...sizes, { size: '', quantity: 0, location: 'online' }]);
     };
 
     // Check if token is missing or expired
@@ -840,29 +875,91 @@ function AdminPage({ token, login }) {
                 </div>
             </div>
 
-            {/* Add New Product */}
+            {/* Add New Product Button */}
             <div className="mb-6">
-                <h3 className="font-semibold mb-2">Lägg till ny produkt</h3>
+                <button
+                    onClick={() => setShowCreateProductModal(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold"
+                >
+                    + Lägg till ny produkt
+                </button>
+            </div>
 
-                <label className="block text-sm font-medium text-gray-700 mb-1">Namn</label>
-                <input
-                    type="text"
-                    placeholder="Namn"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="border p-1 mr-2"
-                />
+            {/* Add New Product Modal */}
+            {showCreateProductModal && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) {
+                            setShowCreateProductModal(false);
+                            // Reset form when closing
+                            setName("");
+                            setPrice("");
+                            setSizes([{ size: '', quantity: 0, location: 'online' }]);
+                            setImageFiles([]);
+                            setCategory("");
+                            setColor("");
+                            setGsm("");
+                            setAgeGroup("");
+                            setDescription("");
+                            setSalePrice("");
+                            setDiscountPercent("");
+                            setSaleType("percent");
+                            setSelectedCategoryIds([]);
+                            setCreateSuccess(false);
+                        }
+                    }}
+                >
+                    <div 
+                        className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                            <h3 className="text-xl font-semibold">Lägg till ny produkt</h3>
+                            <button
+                                onClick={() => {
+                                    setShowCreateProductModal(false);
+                                    // Reset form when closing
+                                    setName("");
+                                    setPrice("");
+                                    setSizes([{ size: '', quantity: 0, location: 'online' }]);
+                                    setImageFiles([]);
+                                    setCategory("");
+                                    setColor("");
+                                    setGsm("");
+                                    setAgeGroup("");
+                                    setDescription("");
+                                    setSalePrice("");
+                                    setDiscountPercent("");
+                                    setSaleType("percent");
+                                    setSelectedCategoryIds([]);
+                                    setCreateSuccess(false);
+                                }}
+                                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Namn</label>
+                            <input
+                                type="text"
+                                placeholder="Namn"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="border p-1 mr-2 w-full mb-2"
+                            />
 
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Pris</label>
-                <input
-                    type="number"
-                    placeholder="Pris"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="border p-1 mr-2"
-                />
+                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Pris</label>
+                            <input
+                                type="number"
+                                placeholder="Pris"
+                                value={price}
+                                onChange={(e) => setPrice(e.target.value)}
+                                className="border p-1 mr-2 w-full mb-2"
+                            />
 
-                <div className="mt-2">
+                            <div className="mt-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rabatt / Reapris</label>
                     <div className="flex items-center gap-2 flex-wrap">
                         <select
@@ -904,11 +1001,11 @@ function AdminPage({ token, login }) {
                                 className="border p-1 w-32"
                             />
                         )}
-                    </div>
-                </div>
+                            </div>
+                            </div>
 
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategorier (välj en eller flera)</label>
-                <div className="space-y-2 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Kategorier (välj en eller flera)</label>
+                            <div className="flex flex-wrap gap-2 mb-2">
                     {categories.map((cat) => (
                         <label key={cat.id} className="flex items-center gap-2">
                             <input
@@ -925,54 +1022,57 @@ function AdminPage({ token, login }) {
                             />
                             <span>{cat.name}</span>
                         </label>
-                    ))}
-                </div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Eller ange kategori manuellt (för bakåtkompatibilitet)</label>
-                <input
-                    type="text"
-                    placeholder="Kategori"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="border p-1 mr-2"
-                />
+                            ))}
+                            </div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Eller ange kategori manuellt (för bakåtkompatibilitet)</label>
+                            <input
+                                type="text"
+                                placeholder="Kategori"
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                                className="border p-1 mr-2 w-full mb-2"
+                            />
 
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Färg (t.ex. "blue", "white")</label>
-                <input
-                    type="text"
-                    placeholder="Färg"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                    className="border p-1 mr-2"
-                />
+                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Färg (t.ex. "blue", "white")</label>
+                            <input
+                                type="text"
+                                placeholder="Färg"
+                                value={color}
+                                onChange={(e) => setColor(e.target.value)}
+                                className="border p-1 mr-2 w-full mb-2"
+                            />
 
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">GSM (t.ex. "550", "750")</label>
-                <input
-                    type="text"
-                    placeholder="GSM"
-                    value={gsm}
-                    onChange={(e) => setGsm(e.target.value)}
-                    className="border p-1 mr-2"
-                />
+                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">GSM (t.ex. "550", "750")</label>
+                            <input
+                                type="text"
+                                placeholder="GSM"
+                                value={gsm}
+                                onChange={(e) => setGsm(e.target.value)}
+                                className="border p-1 mr-2 w-full mb-2"
+                            />
 
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Åldersgrupp (t.ex. "children", "adult")</label>
-                <input
-                    type="text"
-                    placeholder="Åldersgrupp"
-                    value={ageGroup}
-                    onChange={(e) => setAgeGroup(e.target.value)}
-                    className="border p-1 mr-2"
-                />
+                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Åldersgrupp (t.ex. "children", "adult")</label>
+                            <input
+                                type="text"
+                                placeholder="Åldersgrupp"
+                                value={ageGroup}
+                                onChange={(e) => setAgeGroup(e.target.value)}
+                                className="border p-1 mr-2 w-full mb-2"
+                            />
 
-                <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Beskrivning (för SEO - skriv på svenska)</label>
-                <textarea
-                    placeholder="Beskriv produktens egenskaper, vem den passar för, vilka tävlingar/klubbar den är lämplig för, tygtjocklek, storleksguide, tvättråd, etc."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="border p-2 w-full"
-                    rows="6"
-                />
+                            <label className="block text-sm font-medium text-gray-700 mb-1 mt-2">Beskrivning (för SEO - skriv på svenska)</label>
+                            <textarea
+                                placeholder="Beskriv produktens egenskaper, vem den passar för, vilka tävlingar/klubbar den är lämplig för, tygtjocklek, storleksguide, tvättråd, etc."
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                className="border p-2 w-full mb-2"
+                                rows="6"
+                            />
 
-                <div className="space-y-2 mt-2">
+                            <div className="space-y-2 mt-2">
+                    <p className="text-xs text-gray-500 mb-1">
+                        Du kan lägga till samma storlek flera gånger med olika platser (t.ex. 160cm hemma och 160cm i klubben)
+                    </p>
                     {sizes.map((entry, index) => (
                         <div key={index} className="flex gap-2 items-center">
                             <input
@@ -990,6 +1090,14 @@ function AdminPage({ token, login }) {
                                 onChange={(e) => updateSize(index, 'quantity', e.target.value)}
                                 className="border p-2 rounded w-24"
                             />
+                            <select
+                                value={entry.location || 'online'}
+                                onChange={(e) => updateSize(index, 'location', e.target.value)}
+                                className="border p-2 rounded w-32"
+                            >
+                                <option value="online">Online (Hemma)</option>
+                                <option value="club">Showroom (Klubben)</option>
+                            </select>
                             <button
                                 type="button"
                                 onClick={() => removeSize(index)}
@@ -999,17 +1107,17 @@ function AdminPage({ token, login }) {
                             </button>
                         </div>
                     ))}
-                    <button
-                        type="button"
-                        onClick={addSize}
-                        className="text-sm text-blue-600 hover:underline"
-                    >
-                        + Lägg till storlek
-                    </button>
-                </div>
+                                <button
+                                    type="button"
+                                    onClick={addSize}
+                                    className="text-sm text-blue-600 hover:underline"
+                                >
+                                    + Lägg till storlek
+                                </button>
+                            </div>
 
-                <div className="mt-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bild</label>
+                            <div className="mt-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Bild</label>
                     <input
                         type="file"
                         multiple
@@ -1036,16 +1144,19 @@ function AdminPage({ token, login }) {
                             <span>✓</span>
                             Produkt skapad och bilder uppladdade!
                         </div>
-                    )}
+                            )}
+                            </div>
+                            <button 
+                                onClick={handleCreate} 
+                                disabled={isCreating}
+                                className={`px-4 py-2 mt-4 ${isCreating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} text-white rounded font-semibold`}
+                            >
+                                {isCreating ? 'Laddar...' : 'Skapa produkt'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <button 
-                    onClick={handleCreate} 
-                    disabled={isCreating}
-                    className={`px-3 py-1 mt-2 ${isCreating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600'} text-white`}
-                >
-                    {isCreating ? 'Laddar...' : 'Skapa produkt'}
-                </button>
-            </div>
+            )}
 
             {/* Existing Products */}
             <div>
@@ -1117,7 +1228,7 @@ function AdminPage({ token, login }) {
                                 </div>
                                 <div className="mt-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Kategorier (välj en eller flera)</label>
-                                    <div className="space-y-2 mb-2">
+                                    <div className="flex flex-wrap gap-2 mb-2">
                                         {categories.map((cat) => (
                                             <label key={cat.id} className="flex items-center gap-2">
                                                 <input
@@ -1193,6 +1304,9 @@ function AdminPage({ token, login }) {
                                         rows="6"
                                     />
                                 </div>
+                                <p className="text-xs text-gray-500 mb-1">
+                                    Du kan lägga till samma storlek flera gånger med olika platser (t.ex. 160cm hemma och 160cm i klubben)
+                                </p>
                                 {editForm.sizes.map((entry, index) => (
                                     <div key={index} className="flex gap-2 items-center mt-1">
                                         <input
@@ -1200,13 +1314,23 @@ function AdminPage({ token, login }) {
                                             value={entry.size}
                                             onChange={(e) => updateEditSize(index, 'size', e.target.value)}
                                             className="border p-1 w-20"
+                                            placeholder="Storlek"
                                         />
                                         <input
                                             type="number"
                                             value={entry.quantity}
                                             onChange={(e) => updateEditSize(index, 'quantity', e.target.value)}
                                             className="border p-1 w-20"
+                                            placeholder="Antal"
                                         />
+                                        <select
+                                            value={entry.location || 'online'}
+                                            onChange={(e) => updateEditSize(index, 'location', e.target.value)}
+                                            className="border p-1 w-32"
+                                        >
+                                            <option value="online">Online (Hemma)</option>
+                                            <option value="club">Showroom (Klubben)</option>
+                                        </select>
                                         <button
                                             onClick={() => removeEditSize(index)}
                                             className="text-red-600 hover:underline"
@@ -1337,7 +1461,38 @@ function AdminPage({ token, login }) {
                         ) : (
                             <div>
                                 <p>{product.name} – {product.price} SEK</p>
-                                <p className="text-sm text-gray-600">Lager: {JSON.stringify(product.sizes)}</p>
+                                <div className="text-sm text-gray-600">
+                                    <p className="font-semibold mb-1">Lager:</p>
+                                    {Object.entries(product.sizes || {}).map(([size, value]) => {
+                                        // Handle new location-based format: {"online": 2, "club": 1}
+                                        if (typeof value === 'object' && value !== null && ("online" in value || "club" in value)) {
+                                            const onlineQty = value.online || 0;
+                                            const clubQty = value.club || 0;
+                                            const total = onlineQty + clubQty;
+                                            
+                                            if (total === 0) return null;
+                                            
+                                            return (
+                                                <p key={size} className="ml-2">
+                                                    {size}: {total} st total
+                                                    {onlineQty > 0 && <span className="text-blue-600"> ({onlineQty} hemma)</span>}
+                                                    {clubQty > 0 && <span className="text-green-600"> ({clubQty} klubben)</span>}
+                                                </p>
+                                            );
+                                        }
+                                        // Handle old intermediate format or old number format
+                                        else {
+                                            const quantity = typeof value === 'object' && value.quantity !== undefined ? value.quantity : value;
+                                            const location = typeof value === 'object' ? (value.location || 'online') : 'online';
+                                            const locationLabel = location === 'club' ? 'Showroom (Klubben)' : 'Online (Hemma)';
+                                            return (
+                                                <p key={size} className="ml-2">
+                                                    {size}: {quantity} st - {locationLabel}
+                                                </p>
+                                            );
+                                        }
+                                    })}
+                                </div>
                                 <button onClick={() => startEdit(product)} className="bg-yellow-500 text-white px-2 py-1 mr-1">Redigera</button>
                                 <button onClick={() => deleteProduct(product.id)} className="bg-red-600 text-white px-2 py-1">Ta bort</button>
                             </div>

@@ -383,6 +383,97 @@ def get_product_categories(cursor, product_id):
     category_rows = cursor.fetchall()
     return [{"id": cat["id"], "name": cat["name"]} for cat in category_rows]
 
+def normalize_sizes(sizes_dict):
+    """Normalize sizes to new format with location support.
+    Converts old format {"170": 5} to new format {"170": {"online": 5}}
+    New format supports multiple locations: {"170": {"online": 2, "club": 1}}
+    """
+    if not sizes_dict:
+        return {}
+    
+    normalized = {}
+    for size, value in sizes_dict.items():
+        if isinstance(value, dict):
+            # Check if it's the new location-based format (has "online" or "club" keys)
+            if "online" in value or "club" in value:
+                # Already in new location-based format
+                normalized[size] = {
+                    "online": int(value.get("online", 0)) if value.get("online") else 0,
+                    "club": int(value.get("club", 0)) if value.get("club") else 0
+                }
+            elif "quantity" in value:
+                # Old intermediate format {"quantity": 5, "location": "online"} - convert to new format
+                location = value.get("location", "online")
+                normalized[size] = {
+                    "online": int(value.get("quantity", 0)) if location == "online" else 0,
+                    "club": int(value.get("quantity", 0)) if location == "club" else 0
+                }
+            else:
+                # Already in new format but empty, initialize
+                normalized[size] = {
+                    "online": int(value.get("online", 0)) if value.get("online") else 0,
+                    "club": int(value.get("club", 0)) if value.get("club") else 0
+                }
+        else:
+            # Old format (just a number), convert to new format with all at "online"
+            normalized[size] = {
+                "online": int(value) if value else 0,
+                "club": 0
+            }
+    return normalized
+
+def get_size_quantity(sizes_dict, size):
+    """Get total quantity for a size across all locations, supporting both old and new formats"""
+    if not sizes_dict or size not in sizes_dict:
+        return 0
+    
+    value = sizes_dict[size]
+    if isinstance(value, dict):
+        # New location-based format
+        if "online" in value or "club" in value:
+            return int(value.get("online", 0)) + int(value.get("club", 0))
+        # Old intermediate format
+        elif "quantity" in value:
+            return int(value.get("quantity", 0))
+        else:
+            return 0
+    else:
+        # Old format (just a number)
+        return int(value) if value else 0
+
+def get_size_quantity_by_location(sizes_dict, size, location):
+    """Get quantity for a size at a specific location"""
+    if not sizes_dict or size not in sizes_dict:
+        return 0
+    
+    value = sizes_dict[size]
+    if isinstance(value, dict):
+        if "online" in value or "club" in value:
+            return int(value.get(location, 0))
+        elif "quantity" in value and value.get("location") == location:
+            return int(value.get("quantity", 0))
+        else:
+            return 0
+    else:
+        # Old format - assume all at "online"
+        return int(value) if value and location == "online" else 0
+
+def update_size_quantity(sizes_dict, size, quantity, location="online"):
+    """Update quantity for a size at a specific location"""
+    if not sizes_dict:
+        sizes_dict = {}
+    
+    # Normalize the size entry first
+    if size not in sizes_dict:
+        sizes_dict[size] = {"online": 0, "club": 0}
+    else:
+        sizes_dict[size] = normalize_sizes({size: sizes_dict[size]})[size]
+    
+    # Update the specific location
+    sizes_dict[size][location] = max(0, quantity)
+    
+    return sizes_dict
+
 def ensure_sale_price_from_discount(product_dict):
     """Ensure sale_price is calculated from discount_percent if discount_percent exists"""
     discount_percent = product_dict.get("discount_percent")
@@ -440,6 +531,14 @@ def read_products():
     for product in products:
         product_dict = dict(product)
 
+        # Normalize sizes to new format with location support
+        if product_dict.get("sizes"):
+            try:
+                sizes_parsed = json.loads(product_dict["sizes"]) if isinstance(product_dict["sizes"], str) else product_dict["sizes"]
+                product_dict["sizes"] = json.dumps(normalize_sizes(sizes_parsed))
+            except (json.JSONDecodeError, TypeError):
+                pass  # Keep original if parsing fails
+
         # Fetch images for each product
         images, main_image = get_product_images(cursor, product["id"])
         product_dict["images"] = images
@@ -479,6 +578,14 @@ def get_grouped_products(category: str):
     for product in products:
         product_dict = dict(product)
 
+        # Normalize sizes to new format with location support
+        if product_dict.get("sizes"):
+            try:
+                sizes_parsed = json.loads(product_dict["sizes"]) if isinstance(product_dict["sizes"], str) else product_dict["sizes"]
+                product_dict["sizes"] = json.dumps(normalize_sizes(sizes_parsed))
+            except (json.JSONDecodeError, TypeError):
+                pass  # Keep original if parsing fails
+
         # Fetch images for each product
         images, main_image = get_product_images(cursor, product["id"])
         product_dict["images"] = images
@@ -517,6 +624,14 @@ def get_products_by_category(category: str):
     result = []
     for product in products:
         product_dict = dict(product)
+
+        # Normalize sizes to new format with location support
+        if product_dict.get("sizes"):
+            try:
+                sizes_parsed = json.loads(product_dict["sizes"]) if isinstance(product_dict["sizes"], str) else product_dict["sizes"]
+                product_dict["sizes"] = json.dumps(normalize_sizes(sizes_parsed))
+            except (json.JSONDecodeError, TypeError):
+                pass  # Keep original if parsing fails
 
         # Fetch images for each product
         images, main_image = get_product_images(cursor, product["id"])
@@ -716,6 +831,15 @@ def get_product(product_id: int):
     conn.close()
 
     product_dict = dict(product)
+    
+    # Normalize sizes to new format with location support
+    if product_dict.get("sizes"):
+        try:
+            sizes_parsed = json.loads(product_dict["sizes"]) if isinstance(product_dict["sizes"], str) else product_dict["sizes"]
+            product_dict["sizes"] = json.dumps(normalize_sizes(sizes_parsed))
+        except (json.JSONDecodeError, TypeError):
+            pass  # Keep original if parsing fails
+    
     product_dict["images"] = images
     product_dict["main_image"] = main_image
     product_dict["categories"] = categories
@@ -843,6 +967,14 @@ def create_product(
     else:
         final_sale_price = None
         discount_percent_to_save = None
+
+    # Normalize sizes to new format with location support
+    try:
+        sizes_parsed = json.loads(sizes) if isinstance(sizes, str) else sizes
+        sizes_normalized = normalize_sizes(sizes_parsed)
+        sizes = json.dumps(sizes_normalized)
+    except (json.JSONDecodeError, TypeError):
+        pass  # Keep original if parsing fails
 
     # Insert product (without image column)
     cursor.execute(
@@ -989,6 +1121,14 @@ async def update_product(
     else:
         final_sale_price = None
         discount_percent_to_save = None
+    
+    # Normalize sizes to new format with location support
+    try:
+        sizes_parsed = json.loads(sizes) if isinstance(sizes, str) else sizes
+        sizes_normalized = normalize_sizes(sizes_parsed)
+        sizes = json.dumps(sizes_normalized)
+    except (json.JSONDecodeError, TypeError):
+        pass  # Keep original if parsing fails
     
     # Update product basic info
     cursor.execute(
@@ -1397,7 +1537,30 @@ def create_order(order: dict = Body(...)):
 
         sizes = json.loads(row["sizes"])
         if size in sizes:
-            sizes[size] = max(0, sizes[size] - quantity)
+            # Normalize sizes first
+            sizes = normalize_sizes(sizes)
+            
+            # Reduce from online first, then club if needed
+            remaining = quantity
+            if size in sizes:
+                online_qty = sizes[size].get("online", 0)
+                club_qty = sizes[size].get("club", 0)
+                
+                # Reduce from online first
+                if online_qty >= remaining:
+                    sizes[size]["online"] = online_qty - remaining
+                    remaining = 0
+                else:
+                    sizes[size]["online"] = 0
+                    remaining -= online_qty
+                
+                # Then reduce from club if needed
+                if remaining > 0 and club_qty >= remaining:
+                    sizes[size]["club"] = club_qty - remaining
+                    remaining = 0
+                elif remaining > 0:
+                    sizes[size]["club"] = 0
+                    remaining -= club_qty
 
         updated_sizes = json.dumps(sizes)
         cursor.execute("UPDATE products SET sizes = ? WHERE id = ?", (updated_sizes, product_id))
