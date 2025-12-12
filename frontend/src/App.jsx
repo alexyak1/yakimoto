@@ -12,6 +12,7 @@ import AdminPage from './components/AdminPage';
 import TimePage from './components/TimePage';
 import axios from 'axios';
 import { initGA, trackPageView, trackAddToCart, trackRemoveFromCart, trackBeginCheckout } from './analytics';
+import { isTokenValid, isTokenExpired } from './utils/auth';
 
 const CART_KEY = 'yakimoto_cart';
 const API_URL = import.meta.env.VITE_API_URL;
@@ -59,12 +60,39 @@ function ConditionalHeader({ cart, token, logout }) {
   );
 }
 
+// Request interceptor to check token before making authenticated requests
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      // Check if token is expired before making the request
+      if (isTokenExpired(token)) {
+        localStorage.removeItem("token");
+        // Only redirect if we're not already on the admin page
+        if (!window.location.pathname.includes("/admin")) {
+          window.location.href = "/admin";
+        }
+        return Promise.reject(new Error("Token expired"));
+      }
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor to handle auth errors
 axios.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401 || err.response?.status === 403) {
       localStorage.removeItem("token");
-      window.location.href = "/admin";
+      // Only redirect if we're not already on the admin page
+      if (!window.location.pathname.includes("/admin")) {
+        window.location.href = "/admin";
+      }
     }
     return Promise.reject(err);
   }
@@ -86,7 +114,26 @@ function App() {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  const [token, setToken] = useState(localStorage.getItem("token") || "");
+  // Initialize token and validate it on load
+  const [token, setToken] = useState(() => {
+    const storedToken = localStorage.getItem("token");
+    if (storedToken && isTokenValid(storedToken)) {
+      return storedToken;
+    } else if (storedToken && isTokenExpired(storedToken)) {
+      // Clear expired token
+      localStorage.removeItem("token");
+      return "";
+    }
+    return "";
+  });
+
+  // Validate token periodically and before API calls
+  useEffect(() => {
+    if (token && isTokenExpired(token)) {
+      setToken("");
+      localStorage.removeItem("token");
+    }
+  }, [token]);
 
   const addToCart = (product) => {
     const exists = cart.find(
@@ -131,10 +178,11 @@ function App() {
     setCart(updated);
   };
 
-  const login = async (password) => {
+  const login = async (password, rememberMe = false) => {
     try {
       const formData = new FormData();
       formData.append("password", password);
+      formData.append("remember_me", rememberMe);
       const res = await axios.post(`${API_URL}/login`, formData);
       setToken(res.data.token);
       localStorage.setItem("token", res.data.token);

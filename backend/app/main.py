@@ -1317,13 +1317,19 @@ def generate_thumbnails_for_existing_images(auth=Depends(verify_token)):
     }
 
 @app.post("/login")
-def login(password: str = Form(...)):
+def login(password: str = Form(...), remember_me: bool = Form(False)):
     if password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    # If remember_me is True, use longer expiration (30 days), otherwise use default
+    if remember_me:
+        exp_delta = 30 * 24 * 60 * 60  # 30 days in seconds
+    else:
+        exp_delta = JWT_EXP_DELTA_SECONDS
+
     payload = {
         "sub": "admin",
-        "exp": time.time() + JWT_EXP_DELTA_SECONDS
+        "exp": time.time() + exp_delta
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return {"token": token}

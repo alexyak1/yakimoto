@@ -3,6 +3,7 @@ import axios from "axios";
 import { updatePageMeta } from '../seo.jsx';
 import { getImageUrl } from '../utils/imageUtils';
 import { SmartImage } from './SmartImage';
+import { isTokenValid, isTokenExpired } from '../utils/auth';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -40,8 +41,16 @@ function AdminPage({ token, login }) {
     const [isGeneratingThumbnails, setIsGeneratingThumbnails] = useState(false);
     const [thumbnailResult, setThumbnailResult] = useState(null);
     const [isReorderingCategories, setIsReorderingCategories] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
 
     useEffect(() => {
+        // Check token validity on mount and periodically
+        if (token && isTokenExpired(token)) {
+            // Token expired - it will be cleared by App.jsx
+            return;
+        }
+
+        // Fetch data (products and categories are public, but we check token for admin operations)
         fetchProducts();
         fetchCategories();
         
@@ -52,7 +61,7 @@ function AdminPage({ token, login }) {
             "https://yakimoto.se/admin",
             "noindex, nofollow"
         );
-    }, []);
+    }, [token]);
 
     const fetchProducts = async () => {
         try {
@@ -459,23 +468,48 @@ function AdminPage({ token, login }) {
         setSizes([...sizes, { size: '', quantity: 0 }]);
     };
 
-    if (!token) {
+    // Check if token is missing or expired
+    if (!token || !isTokenValid(token)) {
         return (
             <div className="p-4">
                 <h2 className="text-lg font-semibold mb-2">Admin Login</h2>
-                <input
-                    type="password"
-                    placeholder="Lösenord"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border p-1 mr-2"
-                />
-                <button
-                    onClick={() => login(password)}
-                    className="bg-blue-500 text-white px-3 py-1"
-                >
-                    Logga in
-                </button>
+                <div className="space-y-3">
+                    <input
+                        type="password"
+                        placeholder="Lösenord"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                                login(password, rememberMe);
+                            }
+                        }}
+                        className="border p-2 rounded w-full max-w-xs"
+                    />
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="rememberMe"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="border"
+                        />
+                        <label htmlFor="rememberMe" className="text-sm text-gray-700">
+                            Kom ihåg mig (30 dagar)
+                        </label>
+                    </div>
+                    <button
+                        onClick={() => login(password, rememberMe)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                        Logga in
+                    </button>
+                    {token && isTokenExpired(token) && (
+                        <p className="text-sm text-red-600 mt-2">
+                            Din session har gått ut. Vänligen logga in igen.
+                        </p>
+                    )}
+                </div>
             </div>
         );
     }
