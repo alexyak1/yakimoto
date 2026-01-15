@@ -139,6 +139,8 @@ def confirm_payment(payment_data: dict = Body(...)):
         
         return {"message": "Payment confirmed and order processed"}
         
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         print(f"Payment confirmation error: {e}")
         raise HTTPException(status_code=500, detail="Failed to confirm payment")

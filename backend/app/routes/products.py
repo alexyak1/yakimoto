@@ -394,7 +394,6 @@ def delete_product_image(
     filename: str,
     auth=Depends(verify_token),
 ):
-    """Delete an image from a product."""
     conn = get_db()
     cursor = conn.cursor()
     

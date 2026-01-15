@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 
 class Product(BaseModel):
-    """Product model for API responses."""
     name: str
     price: int
     image: Optional[str] = None
@@ -14,7 +13,6 @@ class Product(BaseModel):
 
 
 class ProductCreate(BaseModel):
-    """Product creation model."""
     name: str
     price: int
     sizes: str
@@ -29,18 +27,15 @@ class ProductCreate(BaseModel):
 
 
 class CategoryCreate(BaseModel):
-    """Category creation model."""
     name: str
     image_filename: Optional[str] = None
 
 
 class CategoryOrder(BaseModel):
-    """Category ordering model."""
     orders: Dict[str, int]
 
 
 class OrderItem(BaseModel):
-    """Single item in an order."""
     id: int
     name: str
     price: int
@@ -50,7 +45,6 @@ class OrderItem(BaseModel):
 
 
 class CustomerInfo(BaseModel):
-    """Customer information for checkout."""
     firstName: str
     lastName: str
     email: str
@@ -59,7 +53,6 @@ class CustomerInfo(BaseModel):
 
 
 class Order(BaseModel):
-    """Complete order model."""
     customer: CustomerInfo
     items: List[OrderItem]
     total: Optional[float] = None
@@ -67,13 +60,11 @@ class Order(BaseModel):
 
 
 class PaymentIntentRequest(BaseModel):
-    """Request for creating a payment intent."""
     total: float
     customer: Optional[CustomerInfo] = None
     items: Optional[List[OrderItem]] = None
 
 
 class PaymentConfirmation(BaseModel):
-    """Payment confirmation request."""
     payment_intent_id: str
     order: Order
