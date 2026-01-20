@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { updatePageMeta } from '../seo.jsx';
 import { SmartImage } from './SmartImage';
+import { NEW_PRODUCT_LABEL, SALE_LABEL, OUT_OF_STOCK_LABEL } from '../constants';
 
 export const CategoryPage = () => {
   const { categoryName } = useParams();
@@ -71,7 +72,7 @@ export const CategoryPage = () => {
       }
     });
 
-    if (total === 0) return 'Slut i lager';
+    if (total === 0) return OUT_OF_STOCK_LABEL;
     if (total <= 2) return 'Lågt i lager';
     return 'I lager';
   };
@@ -134,13 +135,25 @@ export const CategoryPage = () => {
               {/* Sale badge overlay */}
               {product.sale_price && (
                 <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded">
-                  REA
+                  {SALE_LABEL}
+                </div>
+              )}
+              {/* NEW badge overlay - show if is_new is set and not expired */}
+              {product.is_new && !product.sale_price && (
+                <div className="absolute top-3 left-3 bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded">
+                  {NEW_PRODUCT_LABEL}
+                </div>
+              )}
+              {/* NEW badge when there's also a sale - show next to REA */}
+              {product.is_new && product.sale_price && (
+                <div className="absolute top-3 left-16 bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded">
+                  {NEW_PRODUCT_LABEL}
                 </div>
               )}
               {/* Optional: "Slut i lager" badge overlay */}
-              {getStockStatus(product.sizes) === "Slut i lager" && (
+              {getStockStatus(product.sizes) === OUT_OF_STOCK_LABEL && (
                 <div className="absolute top-3 right-3 bg-red-600 text-white text-xs px-2 py-1 rounded">
-                  Slut i lager
+                  {OUT_OF_STOCK_LABEL}
                 </div>
               )}
             </Link>

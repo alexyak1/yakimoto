@@ -50,7 +50,9 @@ def setup_database():
             age_group TEXT,
             description TEXT,
             sale_price INTEGER,
-            discount_percent INTEGER
+            discount_percent INTEGER,
+            is_new INTEGER DEFAULT 0,
+            new_until TEXT
         )
     """)
     
@@ -115,6 +117,8 @@ def _run_migrations(conn):
         ("products", "description", "TEXT"),
         ("products", "sale_price", "INTEGER"),
         ("products", "discount_percent", "INTEGER"),
+        ("products", "is_new", "INTEGER DEFAULT 0"),
+        ("products", "new_until", "TEXT"),
         ("product_images", "is_main", "INTEGER DEFAULT 0"),
         ("categories", "display_order", "INTEGER DEFAULT 0"),
     ]

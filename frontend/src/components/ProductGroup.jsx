@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { SmartImage } from './SmartImage';
+import { NEW_PRODUCT_LABEL, SALE_LABEL } from '../constants';
 
 export const ProductGroup = ({ category }) => {
   const [groupedProducts, setGroupedProducts] = useState([]);
@@ -99,6 +100,19 @@ export const ProductGroup = ({ category }) => {
                   <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400">
                     Ingen bild
                   </div>
+                )}
+              </div>
+              {/* Badges at top */}
+              <div className="absolute top-3 left-3 flex gap-2">
+                {product.sale_price && product.sale_price > 0 && product.sale_price < product.price && (
+                  <span className="bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded">
+                    {SALE_LABEL}
+                  </span>
+                )}
+                {product.is_new && (
+                  <span className="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded">
+                    {NEW_PRODUCT_LABEL}
+                  </span>
                 )}
               </div>
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6">

@@ -5,6 +5,7 @@ import { Toaster, toast } from "react-hot-toast";
 import { generateProductStructuredData, addStructuredDataToHead, updatePageMeta } from '../seo.jsx';
 import { getImageUrl } from '../utils/imageUtils';
 import { SmartImage } from './SmartImage';
+import { NEW_PRODUCT_LABEL, SALE_LABEL, OUT_OF_STOCK_LABEL } from '../constants';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -185,6 +186,20 @@ export default function ProductDetailPage({ onAddToCart }) {
 
             {/* Product info */}
             <div>
+                {/* Badges row */}
+                <div className="flex gap-2 mb-3">
+                    {product.is_new && (
+                        <span className="bg-green-600 text-white text-sm font-semibold px-3 py-1 rounded">
+                            {NEW_PRODUCT_LABEL}
+                        </span>
+                    )}
+                    {product.sale_price && product.sale_price > 0 && product.sale_price < product.price && (
+                        <span className="bg-red-600 text-white text-sm font-semibold px-3 py-1 rounded">
+                            {SALE_LABEL}
+                        </span>
+                    )}
+                </div>
+                
                 <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
                 <div className="mb-4">
                   {product.sale_price && product.sale_price > 0 && product.sale_price < product.price ? (
@@ -243,7 +258,7 @@ export default function ProductDetailPage({ onAddToCart }) {
                     <div className="flex gap-2 flex-wrap">
                         {sizes.map(([size, qty]) => {
                             let stockLabel = "";
-                            if (qty === 0) stockLabel = "Slut i lager";
+                            if (qty === 0) stockLabel = OUT_OF_STOCK_LABEL;
                             else if (qty <= 2) stockLabel = "Få kvar";
                             else stockLabel = "I lager";
 
@@ -334,7 +349,7 @@ export default function ProductDetailPage({ onAddToCart }) {
                 </button>
 
                 {selectedSize && sizes.find(([s]) => s === selectedSize)?.[1] === 0 && (
-                    <p className="mt-4 text-red-600">Slut i lager för storlek {selectedSize}</p>
+                    <p className="mt-4 text-red-600">{OUT_OF_STOCK_LABEL} för storlek {selectedSize}</p>
                 )}
             </div>
         </div>

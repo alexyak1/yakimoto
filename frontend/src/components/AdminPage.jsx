@@ -4,6 +4,7 @@ import { updatePageMeta } from '../seo.jsx';
 import { getImageUrl } from '../utils/imageUtils';
 import { SmartImage } from './SmartImage';
 import { isTokenValid, isTokenExpired } from '../utils/auth';
+import { NEW_PRODUCT_LABEL, SALE_LABEL } from '../constants';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -17,7 +18,7 @@ function AdminPage({ token, login }) {
     const [createSuccess, setCreateSuccess] = useState(false);
     const [password, setPassword] = useState("");
     const [editProductId, setEditProductId] = useState(null);
-    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "", description: "", sale_price: "", discount_percent: "", sale_type: "percent", category_ids: [] });
+    const [editForm, setEditForm] = useState({ name: "", price: "", sizes: [{ size: '', quantity: 0 }], category: "", color: "", gsm: "", age_group: "", description: "", sale_price: "", discount_percent: "", sale_type: "percent", category_ids: [], is_new: false, new_duration: "" });
     const [editImageFiles, setEditImageFiles] = useState([]);
     const [description, setDescription] = useState("");
     const [isUploading, setIsUploading] = useState(false);
@@ -30,6 +31,8 @@ function AdminPage({ token, login }) {
     const [discountPercent, setDiscountPercent] = useState("");
     const [saleType, setSaleType] = useState("percent"); // "percent" or "price"
     const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+    const [isNew, setIsNew] = useState(false);
+    const [newDuration, setNewDuration] = useState(""); // "", "1week", "2weeks", "1month", "3months"
     const [categories, setCategories] = useState([]);
     const [categoryName, setCategoryName] = useState("");
     const [categoryImage, setCategoryImage] = useState(null);
@@ -86,6 +89,29 @@ function AdminPage({ token, login }) {
         } catch (err) {
             console.error("Failed to fetch categories", err);
         }
+    };
+
+    // Helper function to calculate new_until date based on duration
+    const calculateNewUntilDate = (duration) => {
+        if (!duration) return null;
+        const now = new Date();
+        switch (duration) {
+            case "1week":
+                now.setDate(now.getDate() + 7);
+                break;
+            case "2weeks":
+                now.setDate(now.getDate() + 14);
+                break;
+            case "1month":
+                now.setMonth(now.getMonth() + 1);
+                break;
+            case "3months":
+                now.setMonth(now.getMonth() + 3);
+                break;
+            default:
+                return null;
+        }
+        return now.toISOString();
     };
 
     const handleCreateCategory = async () => {
@@ -249,6 +275,16 @@ function AdminPage({ token, login }) {
             } else if (salePrice && salePrice !== "" && salePrice !== "0") {
                 formData.append("sale_price", salePrice);
             }
+            
+            // Add new label fields
+            if (isNew) {
+                formData.append("is_new", "true");
+                const newUntilDate = calculateNewUntilDate(newDuration);
+                if (newUntilDate) {
+                    formData.append("new_until", newUntilDate);
+                }
+            }
+            
             for (let file of imageFiles) {
                 formData.append("images", file);
             }
@@ -273,6 +309,8 @@ function AdminPage({ token, login }) {
             setDiscountPercent("");
             setSaleType("percent");
             setSelectedCategoryIds([]);
+            setIsNew(false);
+            setNewDuration("");
             await fetchProducts();
             
             // Clear success message after 2 seconds, then close modal
@@ -374,6 +412,23 @@ function AdminPage({ token, login }) {
         const categoryIds = product.categories ? product.categories.map(c => c.id) : [];
         console.log("Loading product for edit:", product.name, "categories:", product.categories, "categoryIds:", categoryIds);
 
+        // Determine if is_new is still active
+        const isNewActive = product.is_new && (!product.new_until || new Date(product.new_until) > new Date());
+        
+        // Calculate remaining duration for display
+        let remainingDuration = "";
+        if (product.new_until) {
+            const newUntil = new Date(product.new_until);
+            const now = new Date();
+            const daysRemaining = Math.ceil((newUntil - now) / (1000 * 60 * 60 * 24));
+            if (daysRemaining > 0) {
+                if (daysRemaining <= 7) remainingDuration = "1week";
+                else if (daysRemaining <= 14) remainingDuration = "2weeks";
+                else if (daysRemaining <= 30) remainingDuration = "1month";
+                else remainingDuration = "3months";
+            }
+        }
+
         setEditForm({
             name: product.name,
             price: product.price,
@@ -387,6 +442,9 @@ function AdminPage({ token, login }) {
             discount_percent: product.discount_percent || "",
             sale_type: product.discount_percent ? "percent" : "price",
             category_ids: categoryIds,
+            is_new: isNewActive,
+            new_duration: remainingDuration,
+            new_until: product.new_until || "",
         });
     };
 
@@ -444,6 +502,16 @@ function AdminPage({ token, login }) {
             } else if (editForm.sale_price && editForm.sale_price !== "") {
                 formData.append("sale_price", editForm.sale_price);
             }
+            
+            // Add new label fields
+            formData.append("is_new", editForm.is_new ? "true" : "false");
+            if (editForm.is_new && editForm.new_duration) {
+                const newUntilDate = calculateNewUntilDate(editForm.new_duration);
+                if (newUntilDate) {
+                    formData.append("new_until", newUntilDate);
+                }
+            }
+            
             for (let file of editImageFiles) {
                 formData.append("images", file);
             }
@@ -933,6 +1001,8 @@ function AdminPage({ token, login }) {
                             setDiscountPercent("");
                             setSaleType("percent");
                             setSelectedCategoryIds([]);
+                            setIsNew(false);
+                            setNewDuration("");
                             setCreateSuccess(false);
                         }
                     }}
@@ -960,6 +1030,8 @@ function AdminPage({ token, login }) {
                                     setDiscountPercent("");
                                     setSaleType("percent");
                                     setSelectedCategoryIds([]);
+                                    setIsNew(false);
+                                    setNewDuration("");
                                     setCreateSuccess(false);
                                 }}
                                 className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
@@ -1095,6 +1167,39 @@ function AdminPage({ token, login }) {
                                 className="border p-2 w-full mb-2"
                                 rows="6"
                             />
+
+                            {/* New Label Section */}
+                            <div className="mt-4 p-4 border rounded bg-green-50">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isNew}
+                                        onChange={(e) => setIsNew(e.target.checked)}
+                                        className="w-4 h-4"
+                                    />
+                                    <span className="font-medium text-green-800">Markera som ny produkt</span>
+                                    <span className="bg-green-600 text-white text-xs px-2 py-0.5 rounded font-semibold">{NEW_PRODUCT_LABEL}</span>
+                                </label>
+                                {isNew && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Hur länge ska produkten visas som ny?</label>
+                                        <select
+                                            value={newDuration}
+                                            onChange={(e) => setNewDuration(e.target.value)}
+                                            className="border p-2 rounded w-full"
+                                        >
+                                            <option value="">Ingen tidsgräns (manuell avstängning)</option>
+                                            <option value="1week">1 vecka</option>
+                                            <option value="2weeks">2 veckor</option>
+                                            <option value="1month">1 månad</option>
+                                            <option value="3months">3 månader</option>
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {newDuration ? `"${NEW_PRODUCT_LABEL}"-märkningen försvinner automatiskt efter vald tid` : `"${NEW_PRODUCT_LABEL}"-märkningen visas tills du stänger av den`}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="space-y-2 mt-2">
                     <p className="text-xs text-gray-500 mb-1">
@@ -1330,6 +1435,45 @@ function AdminPage({ token, login }) {
                                         rows="6"
                                     />
                                 </div>
+                                
+                                {/* New Label Section for Edit */}
+                                <div className="mt-4 p-4 border rounded bg-green-50">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={editForm.is_new || false}
+                                            onChange={(e) => setEditForm((prev) => ({ ...prev, is_new: e.target.checked }))}
+                                            className="w-4 h-4"
+                                        />
+                                        <span className="font-medium text-green-800">Markera som ny produkt</span>
+                                        <span className="bg-green-600 text-white text-xs px-2 py-0.5 rounded font-semibold">{NEW_PRODUCT_LABEL}</span>
+                                    </label>
+                                    {editForm.is_new && (
+                                        <div className="mt-3">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Hur länge ska produkten visas som ny?</label>
+                                            <select
+                                                value={editForm.new_duration || ""}
+                                                onChange={(e) => setEditForm((prev) => ({ ...prev, new_duration: e.target.value }))}
+                                                className="border p-2 rounded w-full"
+                                            >
+                                                <option value="">Ingen tidsgräns (manuell avstängning)</option>
+                                                <option value="1week">1 vecka</option>
+                                                <option value="2weeks">2 veckor</option>
+                                                <option value="1month">1 månad</option>
+                                                <option value="3months">3 månader</option>
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {editForm.new_duration ? `"${NEW_PRODUCT_LABEL}"-märkningen försvinner automatiskt efter vald tid` : `"${NEW_PRODUCT_LABEL}"-märkningen visas tills du stänger av den`}
+                                            </p>
+                                            {editForm.new_until && (
+                                                <p className="text-xs text-blue-600 mt-1">
+                                                    Nuvarande utgångsdatum: {new Date(editForm.new_until).toLocaleDateString('sv-SE')}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                
                                 <p className="text-xs text-gray-500 mb-1">
                                     Du kan lägga till samma storlek flera gånger med olika platser (t.ex. 160cm hemma och 160cm i klubben)
                                 </p>
@@ -1486,7 +1630,20 @@ function AdminPage({ token, login }) {
                             </div>
                         ) : (
                             <div>
-                                <p>{product.name} – {product.price} SEK</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p>{product.name} – {product.price} SEK</p>
+                                    {product.is_new && (
+                                        <span className="bg-green-600 text-white text-xs font-semibold px-2 py-0.5 rounded">{NEW_PRODUCT_LABEL}</span>
+                                    )}
+                                    {product.sale_price && (
+                                        <span className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded">{SALE_LABEL}</span>
+                                    )}
+                                    {product.new_until && product.is_new && (
+                                        <span className="text-xs text-gray-500">
+                                            (till {new Date(product.new_until).toLocaleDateString('sv-SE')})
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="text-sm text-gray-600">
                                     <p className="font-semibold mb-1">Lager:</p>
                                     {Object.entries(product.sizes || {}).map(([size, value]) => {

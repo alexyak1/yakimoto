@@ -4,6 +4,7 @@ Product management endpoints.
 import json
 import os
 import sqlite3
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -82,6 +83,24 @@ def ensure_sale_price_from_discount(product_dict: dict) -> dict:
     return product_dict
 
 
+def check_new_status(product_dict: dict) -> dict:
+    """Check if product's 'new' status is still valid based on new_until date."""
+    is_new = product_dict.get("is_new", 0)
+    new_until = product_dict.get("new_until")
+    
+    if is_new and new_until:
+        try:
+            # Parse the new_until date
+            expiry_date = datetime.fromisoformat(new_until.replace('Z', '+00:00'))
+            if datetime.now(expiry_date.tzinfo) > expiry_date:
+                # New status has expired
+                product_dict["is_new"] = 0
+        except (ValueError, AttributeError):
+            pass
+    
+    return product_dict
+
+
 def build_product_response(cursor, product) -> dict:
     product_dict = dict(product)
     
@@ -105,6 +124,9 @@ def build_product_response(cursor, product) -> dict:
     
     # Ensure sale price
     product_dict = ensure_sale_price_from_discount(product_dict)
+    
+    # Check new status expiry
+    product_dict = check_new_status(product_dict)
     
     return product_dict
 
@@ -247,6 +269,8 @@ def create_product(
     sale_price: str = Form(None),
     discount_percent: str = Form(None),
     category_ids: str = Form(None),
+    is_new: str = Form(None),
+    new_until: str = Form(None),
     auth=Depends(verify_token),
 ):
     conn = get_db()
@@ -264,12 +288,16 @@ def create_product(
     except (json.JSONDecodeError, TypeError):
         pass
     
+    # Parse is_new
+    is_new_val = 1 if is_new and is_new.lower() in ('true', '1', 'yes') else 0
+    new_until_val = new_until if new_until and new_until.strip() else None
+    
     # Insert product
     cursor.execute(
         """INSERT INTO products 
-           (name, price, sizes, category, color, gsm, age_group, description, sale_price, discount_percent) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (name, price, sizes, category, color, gsm, age_group, description, final_sale_price, discount_percent_to_save)
+           (name, price, sizes, category, color, gsm, age_group, description, sale_price, discount_percent, is_new, new_until) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (name, price, sizes, category, color, gsm, age_group, description, final_sale_price, discount_percent_to_save, is_new_val, new_until_val)
     )
     product_id = cursor.lastrowid
     
@@ -308,6 +336,8 @@ async def update_product(
     sale_price: int = Form(None),
     discount_percent: int = Form(None),
     category_ids: str = Form(None),
+    is_new: str = Form(None),
+    new_until: str = Form(None),
     auth=Depends(verify_token),
 ):
     conn = get_db()
@@ -325,14 +355,19 @@ async def update_product(
     except (json.JSONDecodeError, TypeError):
         pass
     
+    # Parse is_new
+    is_new_val = 1 if is_new and is_new.lower() in ('true', '1', 'yes') else 0
+    new_until_val = new_until if new_until and new_until.strip() else None
+    
     # Update product
     cursor.execute(
         """UPDATE products 
            SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, 
-               age_group = ?, description = ?, sale_price = ?, discount_percent = ? 
+               age_group = ?, description = ?, sale_price = ?, discount_percent = ?,
+               is_new = ?, new_until = ? 
            WHERE id = ?""",
         (name, price, sizes, category, color, gsm, age_group, description, 
-         final_sale_price, discount_percent_to_save, product_id)
+         final_sale_price, discount_percent_to_save, is_new_val, new_until_val, product_id)
     )
     
     # Update categories
