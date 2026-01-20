@@ -201,17 +201,24 @@ def calculate_sale_price(price: int, sale_price: Optional[str], discount_percent
 
 
 def link_product_categories(cursor, product_id: int, category_ids: Optional[str], category: Optional[str]):
-    if category_ids:
+    # Parse category_ids string (can be empty string, None, or comma-separated IDs)
+    print(f"link_product_categories: product_id={product_id}, category_ids='{category_ids}', category='{category}'")
+    
+    if category_ids is not None and category_ids.strip():
         category_id_list = [int(cid.strip()) for cid in category_ids.split(',') if cid.strip()]
+        print(f"Inserting category_ids: {category_id_list}")
         for cat_id in category_id_list:
             try:
                 cursor.execute(
                     "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
                     (product_id, cat_id)
                 )
-            except sqlite3.IntegrityError:
-                pass
-    elif category:
+                print(f"Inserted product_categories: ({product_id}, {cat_id})")
+            except sqlite3.IntegrityError as e:
+                print(f"IntegrityError inserting ({product_id}, {cat_id}): {e}")
+    elif category_ids is None and category:
+        # Fallback to legacy category field only if category_ids was not provided at all
+        print(f"Fallback to legacy category: {category}")
         cursor.execute("SELECT id FROM categories WHERE name = ?", (category,))
         cat = cursor.fetchone()
         if cat:
@@ -222,6 +229,8 @@ def link_product_categories(cursor, product_id: int, category_ids: Optional[str]
                 )
             except sqlite3.IntegrityError:
                 pass
+    else:
+        print("No categories to link")
 
 
 @router.post("")

@@ -123,7 +123,10 @@ function AdminPage({ token, login }) {
         }
         
         try {
-            await axios.delete(`${API_URL}/categories/${categoryName}`, {
+            // URL encode the category name to handle special characters and spaces
+            const encodedName = encodeURIComponent(categoryName);
+            console.log("Deleting category:", categoryName, "encoded:", encodedName);
+            await axios.delete(`${API_URL}/categories/${encodedName}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             await fetchCategories();
@@ -368,6 +371,7 @@ function AdminPage({ token, login }) {
 
         // Get category IDs from product categories
         const categoryIds = product.categories ? product.categories.map(c => c.id) : [];
+        console.log("Loading product for edit:", product.name, "categories:", product.categories, "categoryIds:", categoryIds);
 
         setEditForm({
             name: product.name,
@@ -380,6 +384,7 @@ function AdminPage({ token, login }) {
             description: product.description || "",
             sale_price: product.sale_price || "",
             discount_percent: product.discount_percent || "",
+            sale_type: product.discount_percent ? "percent" : "price",
             category_ids: categoryIds,
         });
     };
@@ -425,9 +430,10 @@ function AdminPage({ token, login }) {
             formData.append("price", editForm.price);
             formData.append("sizes", JSON.stringify(sizesObj));
             if (editForm.category) formData.append("category", editForm.category);
-            if (editForm.category_ids && editForm.category_ids.length > 0) {
-                formData.append("category_ids", editForm.category_ids.join(','));
-            }
+            // Always send category_ids, even if empty (to clear categories if needed)
+            const categoryIdsToSend = editForm.category_ids || [];
+            console.log("Saving category_ids:", categoryIdsToSend);
+            formData.append("category_ids", categoryIdsToSend.join(','));
             if (editForm.color) formData.append("color", editForm.color);
             if (editForm.gsm) formData.append("gsm", editForm.gsm);
             if (editForm.age_group) formData.append("age_group", editForm.age_group);

@@ -46,6 +46,11 @@ def create_category(
     image: Optional[UploadFile] = File(None),
     auth=Depends(verify_token),
 ):
+    # Trim whitespace from category name
+    name = name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Category name cannot be empty")
+    
     conn = get_db()
     cursor = conn.cursor()
     
@@ -83,6 +88,11 @@ def update_category(
     image: Optional[UploadFile] = File(None),
     auth=Depends(verify_token),
 ):
+    # Trim whitespace from category name
+    name = name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Category name cannot be empty")
+    
     conn = get_db()
     cursor = conn.cursor()
     
@@ -138,17 +148,43 @@ def reorder_categories(
 
 @router.delete("/{category_name}")
 def delete_category(category_name: str, auth=Depends(verify_token)):
+    print(f"Delete category request: '{category_name}'")
     conn = get_db()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT image_filename FROM categories WHERE name = ?", (category_name,))
+    # Try exact match first
+    cursor.execute("SELECT id, name, image_filename FROM categories WHERE name = ?", (category_name,))
     category = cursor.fetchone()
     
-    if category and category["image_filename"]:
+    # If not found, try with trimmed name (to handle trailing spaces)
+    if not category:
+        trimmed_name = category_name.strip()
+        print(f"Exact match not found, trying trimmed: '{trimmed_name}'")
+        cursor.execute("SELECT id, name, image_filename FROM categories WHERE name = ? OR TRIM(name) = ?", 
+                      (trimmed_name, trimmed_name))
+        category = cursor.fetchone()
+    
+    if not category:
+        print(f"Category not found: '{category_name}'")
+        # List all categories for debugging
+        cursor.execute("SELECT id, name FROM categories")
+        all_cats = cursor.fetchall()
+        print(f"All categories: {[dict(c) for c in all_cats]}")
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"Category '{category_name}' not found")
+    
+    print(f"Found category: id={category['id']}, name='{category['name']}'")
+    
+    if category["image_filename"]:
         ImageService.delete_image(category["image_filename"])
     
-    cursor.execute("DELETE FROM categories WHERE name = ?", (category_name,))
+    # Delete the category
+    cursor.execute("DELETE FROM categories WHERE id = ?", (category["id"],))
+    # Also clean up product_categories references
+    cursor.execute("DELETE FROM product_categories WHERE category_id = ?", (category["id"],))
+    
     conn.commit()
     conn.close()
     
-    return {"message": "Category deleted", "name": category_name}
+    print(f"Category deleted: id={category['id']}, name='{category['name']}'")
+    return {"message": "Category deleted", "name": category["name"]}
