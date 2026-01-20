@@ -1013,9 +1013,9 @@ function AdminPage({ token, login }) {
                                 checked={selectedCategoryIds.includes(cat.id)}
                                 onChange={(e) => {
                                     if (e.target.checked) {
-                                        setSelectedCategoryIds([...selectedCategoryIds, cat.id]);
+                                        setSelectedCategoryIds(prev => [...prev, cat.id]);
                                     } else {
-                                        setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== cat.id));
+                                        setSelectedCategoryIds(prev => prev.filter(id => id !== cat.id));
                                     }
                                 }}
                                 className="border p-1"
@@ -1235,16 +1235,15 @@ function AdminPage({ token, login }) {
                                                     type="checkbox"
                                                     checked={editForm.category_ids && editForm.category_ids.includes(cat.id)}
                                                     onChange={(e) => {
-                                                        const currentIds = editForm.category_ids || [];
                                                         if (e.target.checked) {
                                                             setEditForm((prev) => ({
                                                                 ...prev,
-                                                                category_ids: [...currentIds, cat.id]
+                                                                category_ids: [...(prev.category_ids || []), cat.id]
                                                             }));
                                                         } else {
                                                             setEditForm((prev) => ({
                                                                 ...prev,
-                                                                category_ids: currentIds.filter(id => id !== cat.id)
+                                                                category_ids: (prev.category_ids || []).filter(id => id !== cat.id)
                                                             }));
                                                         }
                                                     }}
