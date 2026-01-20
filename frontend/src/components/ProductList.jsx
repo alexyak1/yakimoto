@@ -12,7 +12,13 @@ export const ProductList = () => {
   useEffect(() => {
     api.get('/products')
       .then(res => {
-        setProducts(res.data);
+        // Sort products: new products first, then the rest
+        const sortedProducts = [...res.data].sort((a, b) => {
+          if (a.is_new && !b.is_new) return -1;
+          if (!a.is_new && b.is_new) return 1;
+          return 0;
+        });
+        setProducts(sortedProducts);
         
         // Update page meta tags and canonical URL for homepage
         updatePageMeta(

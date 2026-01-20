@@ -21,7 +21,13 @@ export const CategoryPage = () => {
     try {
       // Fetch products in category
       const productsRes = await api.get(`/products/category/${categoryName}`);
-      setProducts(productsRes.data);
+      // Sort products: new products first, then the rest
+      const sortedProducts = [...productsRes.data].sort((a, b) => {
+        if (a.is_new && !b.is_new) return -1;
+        if (!a.is_new && b.is_new) return 1;
+        return 0;
+      });
+      setProducts(sortedProducts);
 
       // Update page meta with SEO keywords
       const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
