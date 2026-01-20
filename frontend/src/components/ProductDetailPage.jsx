@@ -188,7 +188,7 @@ export default function ProductDetailPage({ onAddToCart }) {
             <div>
                 {/* Badges row */}
                 <div className="flex gap-2 mb-3">
-                    {product.is_new && (
+                    {!!product.is_new && (
                         <span className="bg-green-600 text-white text-sm font-semibold px-3 py-1 rounded">
                             {NEW_PRODUCT_LABEL}
                         </span>

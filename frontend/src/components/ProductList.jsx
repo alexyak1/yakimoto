@@ -14,8 +14,8 @@ export const ProductList = () => {
       .then(res => {
         // Sort products: new products first, then the rest
         const sortedProducts = [...res.data].sort((a, b) => {
-          if (a.is_new && !b.is_new) return -1;
-          if (!a.is_new && b.is_new) return 1;
+          if (!!a.is_new && !b.is_new) return -1;
+          if (!a.is_new && !!b.is_new) return 1;
           return 0;
         });
         setProducts(sortedProducts);
@@ -111,13 +111,13 @@ export const ProductList = () => {
             </div>
           )}
           {/* NEW badge overlay - show if is_new is set and not expired */}
-          {product.is_new && !product.sale_price && (
+          {!!product.is_new && !product.sale_price && (
             <div className="absolute top-3 left-3 bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded">
               {NEW_PRODUCT_LABEL}
             </div>
           )}
           {/* NEW badge when there's also a sale - show next to REA */}
-          {product.is_new && product.sale_price && (
+          {!!product.is_new && product.sale_price && (
             <div className="absolute top-3 left-16 bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded">
               {NEW_PRODUCT_LABEL}
             </div>

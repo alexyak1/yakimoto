@@ -1632,13 +1632,13 @@ function AdminPage({ token, login }) {
                             <div>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <p>{product.name} – {product.price} SEK</p>
-                                    {product.is_new && (
+                                    {!!product.is_new && (
                                         <span className="bg-green-600 text-white text-xs font-semibold px-2 py-0.5 rounded">{NEW_PRODUCT_LABEL}</span>
                                     )}
                                     {product.sale_price && (
                                         <span className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded">{SALE_LABEL}</span>
                                     )}
-                                    {product.new_until && product.is_new && (
+                                    {product.new_until && !!product.is_new && (
                                         <span className="text-xs text-gray-500">
                                             (till {new Date(product.new_until).toLocaleDateString('sv-SE')})
                                         </span>
