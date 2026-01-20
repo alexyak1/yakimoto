@@ -43,6 +43,7 @@ function AdminPage({ token, login }) {
     const [isReorderingCategories, setIsReorderingCategories] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
     const [showCreateProductModal, setShowCreateProductModal] = useState(false);
+    const [moveInventory, setMoveInventory] = useState(null); // {productId, size, fromLocation, maxQty}
 
     useEffect(() => {
         // Check token validity on mount and periodically
@@ -507,6 +508,26 @@ function AdminPage({ token, login }) {
 
     const addSize = () => {
         setSizes([...sizes, { size: '', quantity: 0, location: 'online' }]);
+    };
+
+    const handleMoveInventory = async (productId, size, quantity, fromLocation, toLocation) => {
+        try {
+            const formData = new FormData();
+            formData.append("size", size);
+            formData.append("quantity", quantity);
+            formData.append("from_location", fromLocation);
+            formData.append("to_location", toLocation);
+
+            await axios.post(`${API_URL}/products/${productId}/move-inventory`, formData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            setMoveInventory(null);
+            await fetchProducts();
+        } catch (error) {
+            console.error("Failed to move inventory", error);
+            alert(error.response?.data?.detail || "Kunde inte flytta lager");
+        }
     };
 
     // Check if token is missing or expired
@@ -1478,11 +1499,45 @@ function AdminPage({ token, login }) {
                                             if (total === 0) return null;
                                             
                                             return (
-                                                <p key={size} className="ml-2">
-                                                    {size}: {total} st total
-                                                    {onlineQty > 0 && <span className="text-blue-600"> ({onlineQty} hemma)</span>}
-                                                    {clubQty > 0 && <span className="text-green-600"> ({clubQty} klubben)</span>}
-                                                </p>
+                                                <div key={size} className="ml-2 mb-2 flex items-center gap-2 flex-wrap">
+                                                    <span>
+                                                        {size}: {total} st total
+                                                        {onlineQty > 0 && <span className="text-blue-600"> ({onlineQty} hemma)</span>}
+                                                        {clubQty > 0 && <span className="text-green-600"> ({clubQty} klubben)</span>}
+                                                    </span>
+                                                    {onlineQty > 0 && (
+                                                        <button
+                                                            onClick={() => setMoveInventory({
+                                                                productId: product.id,
+                                                                productName: product.name,
+                                                                size,
+                                                                fromLocation: 'online',
+                                                                toLocation: 'club',
+                                                                maxQty: onlineQty
+                                                            })}
+                                                            className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-0.5 rounded"
+                                                            title="Flytta från hemma till klubben"
+                                                        >
+                                                            → Klubb
+                                                        </button>
+                                                    )}
+                                                    {clubQty > 0 && (
+                                                        <button
+                                                            onClick={() => setMoveInventory({
+                                                                productId: product.id,
+                                                                productName: product.name,
+                                                                size,
+                                                                fromLocation: 'club',
+                                                                toLocation: 'online',
+                                                                maxQty: clubQty
+                                                            })}
+                                                            className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-0.5 rounded"
+                                                            title="Flytta från klubben till hemma"
+                                                        >
+                                                            → Hemma
+                                                        </button>
+                                                    )}
+                                                </div>
                                             );
                                         }
                                         // Handle old intermediate format or old number format
@@ -1505,6 +1560,67 @@ function AdminPage({ token, login }) {
                     </div>
                 ))}
             </div>
+
+            {/* Move Inventory Modal */}
+            {moveInventory && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                    onClick={() => setMoveInventory(null)}
+                >
+                    <div 
+                        className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-semibold mb-4">Flytta lager</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            {moveInventory.productName} - Storlek {moveInventory.size}
+                        </p>
+                        <p className="text-sm mb-4">
+                            Flytta från <span className="font-semibold">{moveInventory.fromLocation === 'online' ? 'Hemma' : 'Klubben'}</span> till <span className="font-semibold">{moveInventory.toLocation === 'online' ? 'Hemma' : 'Klubben'}</span>
+                        </p>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Antal att flytta (max {moveInventory.maxQty})
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max={moveInventory.maxQty}
+                                defaultValue="1"
+                                id="moveQtyInput"
+                                className="border p-2 rounded w-full"
+                            />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                onClick={() => setMoveInventory(null)}
+                                className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+                            >
+                                Avbryt
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const qty = parseInt(document.getElementById('moveQtyInput').value) || 1;
+                                    if (qty > 0 && qty <= moveInventory.maxQty) {
+                                        handleMoveInventory(
+                                            moveInventory.productId,
+                                            moveInventory.size,
+                                            qty,
+                                            moveInventory.fromLocation,
+                                            moveInventory.toLocation
+                                        );
+                                    } else {
+                                        alert(`Ange ett antal mellan 1 och ${moveInventory.maxQty}`);
+                                    }
+                                }}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Flytta
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

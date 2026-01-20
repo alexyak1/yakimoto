@@ -11,6 +11,7 @@ from app.services.inventory import (
     get_size_quantity,
     get_size_quantity_by_location,
     update_size_quantity,
+    move_between_locations,
     InventoryService,
 )
 
@@ -224,6 +225,60 @@ class TestUpdateSizeQuantity:
         result = update_size_quantity(sizes, "170", -5, "online")
         
         assert result["170"]["online"] == 0
+
+
+class TestMoveBetweenLocations:
+    """Tests for move_between_locations function."""
+    
+    def test_move_from_online_to_club(self):
+        """Should move inventory from online to club."""
+        sizes = {"170": {"online": 5, "club": 2}}
+        result = move_between_locations(sizes, "170", 3, "online", "club")
+        
+        assert result["170"]["online"] == 2  # 5 - 3 = 2
+        assert result["170"]["club"] == 5     # 2 + 3 = 5
+    
+    def test_move_from_club_to_online(self):
+        """Should move inventory from club to online."""
+        sizes = {"170": {"online": 2, "club": 5}}
+        result = move_between_locations(sizes, "170", 3, "club", "online")
+        
+        assert result["170"]["online"] == 5  # 2 + 3 = 5
+        assert result["170"]["club"] == 2     # 5 - 3 = 2
+    
+    def test_move_all_from_location(self):
+        """Should allow moving all stock from a location."""
+        sizes = {"170": {"online": 3, "club": 0}}
+        result = move_between_locations(sizes, "170", 3, "online", "club")
+        
+        assert result["170"]["online"] == 0
+        assert result["170"]["club"] == 3
+    
+    def test_move_insufficient_stock_raises_error(self):
+        """Should raise error when insufficient stock at source."""
+        sizes = {"170": {"online": 2, "club": 1}}
+        
+        with pytest.raises(ValueError) as exc_info:
+            move_between_locations(sizes, "170", 5, "online", "club")
+        
+        assert "Insufficient stock" in str(exc_info.value)
+    
+    def test_move_nonexistent_size_raises_error(self):
+        """Should raise error for nonexistent size."""
+        sizes = {"170": {"online": 5, "club": 2}}
+        
+        with pytest.raises(ValueError) as exc_info:
+            move_between_locations(sizes, "180", 1, "online", "club")
+        
+        assert "not found" in str(exc_info.value)
+    
+    def test_move_normalizes_old_format(self):
+        """Should normalize old format before moving."""
+        sizes = {"170": 5}  # Old format
+        result = move_between_locations(sizes, "170", 2, "online", "club")
+        
+        assert result["170"]["online"] == 3  # 5 - 2 = 3
+        assert result["170"]["club"] == 2     # 0 + 2 = 2
 
 
 class TestInventoryServiceReduceStock:

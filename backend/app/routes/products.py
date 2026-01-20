@@ -12,7 +12,7 @@ from ..config import settings
 from ..database import get_db
 from ..dependencies import verify_token
 from ..services.image import ImageService
-from ..services.inventory import normalize_sizes
+from ..services.inventory import normalize_sizes, move_between_locations
 
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -395,6 +395,59 @@ def set_main_image(
     conn.close()
     
     return {"message": "Main image updated", "filename": filename}
+
+
+@router.post("/{product_id}/move-inventory")
+def move_inventory(
+    product_id: int,
+    size: str = Form(...),
+    quantity: int = Form(...),
+    from_location: str = Form(...),
+    to_location: str = Form(...),
+    auth=Depends(verify_token),
+):
+    """Move inventory from one location to another."""
+    if from_location not in ("online", "club") or to_location not in ("online", "club"):
+        raise HTTPException(status_code=400, detail="Invalid location. Must be 'online' or 'club'")
+    
+    if from_location == to_location:
+        raise HTTPException(status_code=400, detail="Source and destination must be different")
+    
+    if quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be positive")
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT sizes FROM products WHERE id = ?", (product_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    try:
+        sizes = json.loads(row["sizes"]) if row["sizes"] else {}
+    except json.JSONDecodeError:
+        sizes = {}
+    
+    try:
+        updated_sizes = move_between_locations(sizes, size, quantity, from_location, to_location)
+    except ValueError as e:
+        conn.close()
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    cursor.execute(
+        "UPDATE products SET sizes = ? WHERE id = ?",
+        (json.dumps(updated_sizes), product_id)
+    )
+    
+    conn.commit()
+    conn.close()
+    
+    return {
+        "message": f"Moved {quantity} of size {size} from {from_location} to {to_location}",
+        "sizes": updated_sizes
+    }
 
 
 @router.delete("/{product_id}/images/{filename}")

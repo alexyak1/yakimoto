@@ -95,6 +95,43 @@ def update_size_quantity(sizes_dict: Dict, size: str, quantity: int, location: s
     return sizes_dict
 
 
+def move_between_locations(sizes_dict: Dict, size: str, quantity: int, from_location: str, to_location: str) -> Dict:
+    """
+    Move inventory from one location to another.
+    
+    Args:
+        sizes_dict: Current sizes dictionary
+        size: The size to move
+        quantity: How many to move
+        from_location: Source location ('online' or 'club')
+        to_location: Destination location ('online' or 'club')
+        
+    Returns:
+        Updated sizes dictionary
+        
+    Raises:
+        ValueError: If insufficient stock at source location
+    """
+    if not sizes_dict:
+        sizes_dict = {}
+    
+    if size not in sizes_dict:
+        raise ValueError(f"Size {size} not found in inventory")
+    
+    # Normalize the size entry
+    sizes_dict[size] = normalize_sizes({size: sizes_dict[size]})[size]
+    
+    current_from = sizes_dict[size].get(from_location, 0)
+    if current_from < quantity:
+        raise ValueError(f"Insufficient stock at {from_location}: have {current_from}, need {quantity}")
+    
+    # Move the quantity
+    sizes_dict[size][from_location] = current_from - quantity
+    sizes_dict[size][to_location] = sizes_dict[size].get(to_location, 0) + quantity
+    
+    return sizes_dict
+
+
 class InventoryService:
     """Service for managing product inventory."""
     
