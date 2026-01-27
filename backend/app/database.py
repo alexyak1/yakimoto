@@ -2,10 +2,21 @@
 Database connection and initialization.
 """
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 
 from .config import settings
+
+
+# Valid SQL identifier pattern: letters, digits, underscore (no spaces or special chars)
+_VALID_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+# Allowed tables for migrations (whitelist)
+_ALLOWED_TABLES = frozenset({'products', 'product_images', 'product_sizes', 'categories', 'product_categories'})
+
+# Allowed column types for migrations (whitelist)
+_ALLOWED_TYPES = frozenset({'TEXT', 'INTEGER', 'REAL', 'BLOB', 'INTEGER DEFAULT 0'})
 
 # Ensure directories exist
 os.makedirs(settings.DATA_DIR, exist_ok=True)
@@ -107,8 +118,30 @@ def setup_database():
     conn.close()
 
 
+def _validate_identifier(name: str, identifier_type: str) -> None:
+    """
+    Validate SQL identifier to prevent injection.
+    
+    Args:
+        name: The identifier to validate
+        identifier_type: Description for error message (e.g., "table", "column")
+        
+    Raises:
+        ValueError: If identifier is invalid
+    """
+    if not name or not _VALID_IDENTIFIER.match(name):
+        raise ValueError(
+            f"Invalid {identifier_type} name: '{name}'. "
+            f"Must contain only letters, digits, and underscores."
+        )
+
+
 def _run_migrations(conn):
-    """Run database migrations for existing databases."""
+    """
+    Run database migrations for existing databases.
+    
+    Uses whitelist validation to prevent SQL injection.
+    """
     migrations = [
         ("products", "category", "TEXT"),
         ("products", "color", "TEXT"),
@@ -124,8 +157,19 @@ def _run_migrations(conn):
     ]
     
     for table, column, col_type in migrations:
+        # Validate against whitelist
+        if table not in _ALLOWED_TABLES:
+            raise ValueError(f"Table '{table}' not in allowed tables whitelist")
+        if col_type not in _ALLOWED_TYPES:
+            raise ValueError(f"Column type '{col_type}' not in allowed types whitelist")
+        
+        # Validate identifier format
+        _validate_identifier(table, "table")
+        _validate_identifier(column, "column")
+        
         try:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+            # Safe to use f-string after validation
+            conn.execute(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {col_type}')
         except sqlite3.OperationalError:
             pass  # Column already exists
 
