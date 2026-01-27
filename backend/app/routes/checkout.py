@@ -1,15 +1,12 @@
 """
 Checkout and payment endpoints.
 """
-import json
-
 import stripe
 from fastapi import APIRouter, Body, HTTPException
 
 from ..config import settings
-from ..database import get_db
 from ..services.email import EmailService
-from ..services.inventory import InventoryService, normalize_sizes
+from ..services.inventory import InventoryService
 
 
 # Initialize Stripe
@@ -109,33 +106,7 @@ def confirm_payment(payment_data: dict = Body(...)):
             raise HTTPException(status_code=500, detail="Failed to send email")
         
         # Update stock levels
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        for item in items:
-            product_id = item["id"]
-            size = str(item["selectedSize"])
-            quantity = int(item["quantity"])
-            
-            cursor.execute("SELECT sizes FROM products WHERE id = ?", (product_id,))
-            row = cursor.fetchone()
-            if not row:
-                continue
-            
-            sizes = json.loads(row["sizes"])
-            if size in sizes:
-                if isinstance(sizes[size], dict):
-                    sizes[size]["online"] = max(0, sizes[size].get("online", 0) - quantity)
-                else:
-                    sizes[size] = max(0, sizes[size] - quantity)
-            
-            cursor.execute(
-                "UPDATE products SET sizes = ? WHERE id = ?",
-                (json.dumps(sizes), product_id)
-            )
-        
-        conn.commit()
-        conn.close()
+        InventoryService.reduce_stock(items)
         
         return {"message": "Payment confirmed and order processed"}
         
