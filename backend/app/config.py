@@ -2,17 +2,87 @@
 Application configuration and environment variables.
 """
 import os
+import secrets
+import sys
+import warnings
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
+class ConfigurationError(Exception):
+    """Raised when required configuration is missing."""
+    pass
+
+
+def _get_jwt_secret() -> str:
+    """
+    Get JWT secret from environment or generate a secure random one.
+    
+    In production, a missing JWT_SECRET is a fatal error.
+    In development, a random secret is generated with a warning.
+    """
+    secret = os.getenv("JWT_SECRET", "")
+    env = os.getenv("ENV", "development").lower()
+    
+    if secret:
+        return secret
+    
+    if env == "production":
+        raise ConfigurationError(
+            "JWT_SECRET must be set in production environment. "
+            "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+    
+    # Development mode: generate random secret
+    generated_secret = secrets.token_hex(32)
+    warnings.warn(
+        "JWT_SECRET not set. Using auto-generated secret. "
+        "Sessions will not persist across restarts. "
+        "Set JWT_SECRET in .env for persistent sessions.",
+        RuntimeWarning
+    )
+    return generated_secret
+
+
+def _get_admin_password() -> str:
+    """
+    Get admin password from environment.
+    
+    In production, a missing or weak password is a fatal error.
+    In development, an empty password triggers a warning.
+    """
+    password = os.getenv("ADMIN_PASSWORD", "")
+    env = os.getenv("ENV", "development").lower()
+    
+    if env == "production":
+        if not password:
+            raise ConfigurationError(
+                "ADMIN_PASSWORD must be set in production environment."
+            )
+        if len(password) < 8:
+            raise ConfigurationError(
+                "ADMIN_PASSWORD must be at least 8 characters in production."
+            )
+    elif not password:
+        warnings.warn(
+            "ADMIN_PASSWORD not set. Admin login will fail. "
+            "Set ADMIN_PASSWORD in .env file.",
+            RuntimeWarning
+        )
+    
+    return password
+
+
 class Settings:
     """Application settings loaded from environment variables."""
     
-    # Authentication
-    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
+    # Environment
+    ENV: str = os.getenv("ENV", "development").lower()
+    
+    # Authentication (validated)
+    ADMIN_PASSWORD: str = _get_admin_password()
+    JWT_SECRET: str = _get_jwt_secret()
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_EXP_DELTA_SECONDS: int = int(os.getenv("JWT_EXP_DELTA_SECONDS", 3600))
     
@@ -56,4 +126,9 @@ class Settings:
     ]
 
 
-settings = Settings()
+# Initialize settings - will raise ConfigurationError if production secrets missing
+try:
+    settings = Settings()
+except ConfigurationError as e:
+    print(f"FATAL: Configuration error: {e}", file=sys.stderr)
+    sys.exit(1)
