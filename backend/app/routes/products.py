@@ -333,8 +333,8 @@ async def update_product(
     gsm: str = Form(None),
     age_group: str = Form(None),
     description: str = Form(None),
-    sale_price: int = Form(None),
-    discount_percent: int = Form(None),
+    sale_price: str = Form(None),
+    discount_percent: str = Form(None),
     category_ids: str = Form(None),
     is_new: str = Form(None),
     new_until: str = Form(None),
@@ -345,7 +345,7 @@ async def update_product(
     
     # Calculate sale price
     final_sale_price, discount_percent_to_save = calculate_sale_price(
-        int(price), str(sale_price) if sale_price else None, str(discount_percent) if discount_percent else None
+        int(price), sale_price, discount_percent
     )
     
     # Normalize sizes
