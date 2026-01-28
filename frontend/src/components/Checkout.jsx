@@ -105,26 +105,6 @@ export default function Checkout({ cart, setCart }) {
     // Stripe payment is handled by StripePaymentForm component
     toast.error('För betalning, använd kortformuläret nedan.');
     setIsSubmitting(false);
-    return;
-
-    const orderData = {
-      customer: formData,
-      items: cart,
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      await api.post('/checkout', orderData);
-      toast.success('Beställning skickad!');
-      setCart([]);
-      localStorage.removeItem('yakimoto_cart');
-      setSuccess(true);
-    } catch (err) {
-      console.error(err);
-      toast.error('Något gick fel. Försök igen.');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   return (
