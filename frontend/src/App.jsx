@@ -41,8 +41,8 @@ function PageTracker() {
 function ConditionalHeader({ cart, token, logout }) {
   const location = useLocation();
   
-  // Don't render header on time page
-  if (location.pathname === '/time') {
+  // Don't render header on time page or admin pages
+  if (location.pathname === '/time' || location.pathname.startsWith('/admin')) {
     return null;
   }
   
@@ -213,7 +213,7 @@ function App() {
         <Routes>
           <Route path="/" element={<ProductList onAddToCart={addToCart} />} />
           <Route path="/cart" element={<CartPage cart={cart} removeFromCart={removeFromCart} updateQuantity={updateQuantity} />} />
-          <Route path="/admin" element={<AdminPage token={token} login={login} />} />
+          <Route path="/admin/*" element={<AdminPage token={token} login={login} logout={logout} />} />
           <Route path="/products/:id" element={<ProductDetailPage onAddToCart={addToCart} />} />
           <Route path="/category/:categoryName" element={<CategoryPage />} />
           <Route path="/checkout" element={<Checkout cart={cart} setCart={setCart} />} />
