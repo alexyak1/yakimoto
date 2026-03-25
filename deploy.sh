@@ -28,13 +28,16 @@ if docker buildx version > /dev/null 2>&1; then
 fi
 
 echo "Building new images (containers still running)..."
-docker compose -f docker-compose.prod.yml build --no-cache || {
+docker-compose -f docker-compose.prod.yml build --no-cache || {
     echo "Build failed! Old containers still running, no downtime."
     exit 1
 }
 
-echo "Build successful. Swapping containers..."
-docker compose -f docker-compose.prod.yml up -d || {
+echo "Build successful. Stopping old containers..."
+docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+
+echo "Starting new containers..."
+docker-compose -f docker-compose.prod.yml up -d || {
     echo "Failed to start new containers!"
     exit 1
 }
@@ -43,7 +46,7 @@ echo "Waiting for services to start..."
 sleep 5
 
 echo "Checking container status..."
-docker compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.prod.yml ps
 
 echo "Cleaning up old images..."
 docker image prune -f 2>/dev/null || true
@@ -51,7 +54,7 @@ docker image prune -f 2>/dev/null || true
 echo ""
 echo "Deployment completed successfully!"
 echo "Recent logs:"
-docker compose -f docker-compose.prod.yml logs --tail=10
+docker-compose -f docker-compose.prod.yml logs --tail=10
 
 ENDSSH
 
