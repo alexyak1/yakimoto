@@ -341,6 +341,11 @@ export default function AdminOrders({ products, token, searchQuery }) {
     // Revenue calculation
     const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
 
+    const formatPaymentMethod = (method) => {
+        const methods = { swish: "Swish", stripe: "Kort", bankgiro: "Bankgiro", kontant: "Kontant", faktura: "Faktura" };
+        return methods[method] || method;
+    };
+
     const formatDate = (isoStr) => {
         if (!isoStr) return "";
         const d = new Date(isoStr);
@@ -415,7 +420,14 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                 <StatusBadge paid={order.payment_status === "betald"} pickedUp={order.pickup_status === "hamtad"} />
 
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-gray-900">{order.customer_name}</p>
+                                    <p className="font-medium text-gray-900">
+                                        {order.customer_name}
+                                        {order.payment_method && (
+                                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                {formatPaymentMethod(order.payment_method)}
+                                            </span>
+                                        )}
+                                    </p>
                                     <p className="text-sm text-gray-500 truncate">
                                         {formatItemsSummary(order.items)}
                                     </p>

@@ -13,6 +13,8 @@ import TimePage from './components/TimePage';
 import axios from 'axios';
 import { initGA, trackPageView, trackAddToCart, trackRemoveFromCart, trackBeginCheckout } from './analytics';
 import { isTokenValid, isTokenExpired } from './utils/auth';
+import CookieConsent, { getCookieConsent } from './components/CookieConsent';
+import PrivacyPolicy from './components/PrivacyPolicy';
 
 const CART_KEY = 'yakimoto_cart';
 const API_URL = import.meta.env.VITE_API_URL;
@@ -104,9 +106,11 @@ function App() {
     return storedCart ? JSON.parse(storedCart) : [];
   });
 
-  // Initialize Google Analytics
+  // Initialize Google Analytics only if user has accepted cookies
   useEffect(() => {
-    initGA();
+    if (getCookieConsent() === "accepted") {
+      initGA();
+    }
   }, []);
 
   // Save to localStorage when cart changes
@@ -218,7 +222,9 @@ function App() {
           <Route path="/category/:categoryName" element={<CategoryPage />} />
           <Route path="/checkout" element={<Checkout cart={cart} setCart={setCart} />} />
           <Route path="/time" element={<TimePage />} />
+          <Route path="/integritetspolicy" element={<PrivacyPolicy />} />
         </Routes>
+        <CookieConsent onAccept={() => initGA()} />
       </Router>
     </>
   );

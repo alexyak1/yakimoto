@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { SmartImage } from "../SmartImage";
 import { NEW_PRODUCT_LABEL } from "../../constants";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 function StatCard({ icon, value, label, color }) {
     const colorMap = {
@@ -24,6 +27,12 @@ function StatCard({ icon, value, label, color }) {
 }
 
 export default function AdminDashboard({ products, categories }) {
+    const [consentStats, setConsentStats] = useState({ accepted: 0, declined: 0 });
+
+    useEffect(() => {
+        axios.get(`${API_URL}/consent-stats`).then(res => setConsentStats(res.data)).catch(() => {});
+    }, []);
+
     const totalStock = (products || []).reduce((sum, p) => {
         const sizes = p.sizes || {};
         return sum + Object.values(sizes).reduce((s, v) => {
@@ -102,6 +111,29 @@ export default function AdminDashboard({ products, categories }) {
                     }
                 />
             </div>
+
+            {/* Cookie Consent Stats */}
+            {(consentStats.accepted > 0 || consentStats.declined > 0) && (
+                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Cookie-samtycke</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div>
+                            <p className="text-sm text-gray-500">Accepterat</p>
+                            <p className="text-2xl font-bold text-green-600">{consentStats.accepted}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500">Avvisat</p>
+                            <p className="text-2xl font-bold text-red-500">{consentStats.declined}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500">Acceptansgrad</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                                {Math.round((consentStats.accepted / (consentStats.accepted + consentStats.declined)) * 100)}%
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Recent Products */}
             <div className="bg-white rounded-xl border border-gray-100 p-6">

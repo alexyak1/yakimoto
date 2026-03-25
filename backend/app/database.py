@@ -145,6 +145,15 @@ def setup_database():
         )
     """)
 
+    # Consent log table (anonymous counter)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS consent_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT,
+            created_at TEXT
+        )
+    """)
+
     # Add columns if they don't exist (migration support)
     _run_migrations(conn)
     

@@ -3,12 +3,14 @@ Yakimoto Dojo E-commerce API
 
 FastAPI application for managing products, categories, and orders.
 """
-from fastapi import FastAPI
+from datetime import datetime
+
+from fastapi import Body, FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .database import init_db
+from .database import get_db_context, init_db
 from .routes import (
     products_router,
     categories_router,
@@ -55,3 +57,28 @@ init_db()
 def root():
     """Health check endpoint."""
     return {"status": "ok", "service": "Yakimoto Dojo API"}
+
+
+@app.post("/consent-log")
+def log_consent(body: dict = Body(...)):
+    action = body.get("action")
+    if action not in ("accepted", "declined"):
+        return {"message": "ignored"}
+    with get_db_context() as conn:
+        conn.execute(
+            "INSERT INTO consent_log (action, created_at) VALUES (?, ?)",
+            (action, datetime.utcnow().isoformat()),
+        )
+    return {"message": "logged"}
+
+
+@app.get("/consent-stats")
+def consent_stats():
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT action, COUNT(*) as count FROM consent_log GROUP BY action"
+        )
+        rows = cursor.fetchall()
+    stats = {row["action"]: row["count"] for row in rows}
+    return {"accepted": stats.get("accepted", 0), "declined": stats.get("declined", 0)}
