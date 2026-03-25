@@ -151,6 +151,7 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
         notes = body.get("notes", "")
         payment_status = body.get("payment_status", "ej_betald")
         pickup_status = body.get("pickup_status", "ej_hamtad")
+        created_at = body.get("created_at") or datetime.utcnow().isoformat()
 
         items_total = sum(item.get("price", 0) * item.get("quantity", 1) for item in items)
 
@@ -171,7 +172,7 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
                 payment_status,
                 pickup_status,
                 notes,
-                datetime.utcnow().isoformat(),
+                created_at,
             )
         )
         order_id = cursor.lastrowid

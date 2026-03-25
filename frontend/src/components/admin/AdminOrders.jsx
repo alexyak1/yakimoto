@@ -60,6 +60,7 @@ function NewOrderModal({ products, onClose, onSave }) {
         notes: "",
         payment_status: "ej_betald",
         pickup_status: "ej_hamtad",
+        created_at: new Date().toISOString().slice(0, 10),
     });
     const [items, setItems] = useState([{ product_name: "", size: "", color: "", quantity: 1, price: 0 }]);
     const [saving, setSaving] = useState(false);
@@ -186,14 +187,25 @@ function NewOrderModal({ products, onClose, onSave }) {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Anteckning</label>
-                        <input
-                            value={form.notes}
-                            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder='T.ex. "Hämtar på torsdag"'
-                        />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+                            <input
+                                type="date"
+                                value={form.created_at}
+                                onChange={(e) => setForm({ ...form, created_at: e.target.value })}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Anteckning</label>
+                            <input
+                                value={form.notes}
+                                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder='T.ex. "Hämtar på torsdag"'
+                            />
+                        </div>
                     </div>
 
                     {/* Items */}
@@ -338,8 +350,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
         klar: orders.filter(o => o.payment_status === "betald" && o.pickup_status === "hamtad").length,
     };
 
-    // Revenue calculation
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+
 
     const formatPaymentMethod = (method) => {
         const methods = { swish: "Swish", stripe: "Kort", bankgiro: "Bankgiro", kontant: "Kontant", faktura: "Faktura" };
@@ -479,28 +490,96 @@ export default function AdminOrders({ products, token, searchQuery }) {
                 )}
             </div>
 
-            {/* Revenue summary */}
-            {orders.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-100 p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-3">Sammanfattning</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        <div>
-                            <p className="text-sm text-gray-500">Totala ordrar</p>
-                            <p className="text-xl font-bold text-gray-900">{orders.length}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Totala intäkter</p>
-                            <p className="text-xl font-bold text-gray-900">{totalRevenue.toLocaleString("sv-SE")} SEK</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Avg. ordervärde</p>
-                            <p className="text-xl font-bold text-gray-900">
-                                {orders.length > 0 ? Math.round(totalRevenue / orders.length).toLocaleString("sv-SE") : 0} SEK
-                            </p>
-                        </div>
+            {/* Monthly breakdown */}
+            {orders.length > 0 && (() => {
+                const byMonth = {};
+                orders.forEach((o) => {
+                    const d = o.created_at ? new Date(o.created_at) : new Date();
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    if (!byMonth[key]) byMonth[key] = [];
+                    byMonth[key].push(o);
+                });
+                const sortedMonths = Object.keys(byMonth).sort().reverse();
+
+                const monthName = (key) => {
+                    const [y, m] = key.split("-");
+                    const date = new Date(y, parseInt(m) - 1);
+                    return date.toLocaleDateString("sv-SE", { month: "long", year: "numeric" });
+                };
+
+                return (
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold text-gray-900">Per månad</h2>
+                        {sortedMonths.map((month) => {
+                            const monthOrders = byMonth[month];
+                            const monthRevenue = monthOrders.reduce((s, o) => s + (o.total || 0), 0);
+
+                            // Product breakdown
+                            const productTotals = {};
+                            monthOrders.forEach((o) => {
+                                (o.items || []).forEach((item) => {
+                                    const name = item.product_name || "Okänd";
+                                    if (!productTotals[name]) productTotals[name] = { qty: 0, revenue: 0 };
+                                    productTotals[name].qty += item.quantity || 1;
+                                    productTotals[name].revenue += (item.price || 0) * (item.quantity || 1);
+                                });
+                            });
+
+                            return (
+                                <div key={month} className="bg-white rounded-xl border border-gray-100 p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-base font-semibold text-gray-900 capitalize">{monthName(month)}</h3>
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-sm text-gray-500">{monthOrders.length} ordrar</span>
+                                            <span className="text-base font-bold text-gray-900">{monthRevenue.toLocaleString("sv-SE")} SEK</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Orders table */}
+                                    <table className="w-full text-sm mb-4">
+                                        <thead>
+                                            <tr className="text-left text-gray-500 border-b border-gray-100">
+                                                <th className="pb-2 font-medium">Produkt</th>
+                                                <th className="pb-2 font-medium">Kund</th>
+                                                <th className="pb-2 font-medium text-right">Pris</th>
+                                                <th className="pb-2 font-medium text-right">Datum</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {monthOrders.map((o) => (
+                                                <tr key={o.id}>
+                                                    <td className="py-2 text-gray-900">
+                                                        {(o.items || []).map((i) => i.product_name).join(", ") || "—"}
+                                                    </td>
+                                                    <td className="py-2 text-gray-600">{o.customer_name}</td>
+                                                    <td className="py-2 text-gray-900 text-right">{(o.total || 0).toLocaleString("sv-SE")} kr</td>
+                                                    <td className="py-2 text-gray-400 text-right">{formatDate(o.created_at)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+
+                                    {/* Product breakdown */}
+                                    {Object.keys(productTotals).length > 0 && (
+                                        <div className="border-t border-gray-100 pt-3">
+                                            <p className="text-xs font-medium text-gray-500 mb-2">Produktfördelning</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {Object.entries(productTotals)
+                                                    .sort((a, b) => b[1].revenue - a[1].revenue)
+                                                    .map(([name, data]) => (
+                                                        <span key={name} className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-lg text-xs text-gray-700">
+                                                            {name} <span className="text-gray-400">x{data.qty}</span> <span className="font-medium">{data.revenue.toLocaleString("sv-SE")} kr</span>
+                                                        </span>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {showNewModal && (
                 <NewOrderModal
