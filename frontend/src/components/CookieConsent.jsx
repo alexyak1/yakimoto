@@ -4,7 +4,7 @@ const CONSENT_KEY = "yakimoto_cookie_consent";
 const API_URL = import.meta.env.VITE_API_URL;
 
 export function getCookieConsent() {
-    return localStorage.getItem(CONSENT_KEY);
+    return localStorage.getItem(CONSENT_KEY) || sessionStorage.getItem(CONSENT_KEY);
 }
 
 function logConsent(action) {
@@ -32,7 +32,7 @@ export default function CookieConsent({ onAccept }) {
     };
 
     const decline = () => {
-        localStorage.setItem(CONSENT_KEY, "declined");
+        sessionStorage.setItem(CONSENT_KEY, "declined");
         setVisible(false);
         logConsent("declined");
     };

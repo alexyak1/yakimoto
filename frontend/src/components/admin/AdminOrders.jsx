@@ -274,6 +274,8 @@ export default function AdminOrders({ products, token, searchQuery }) {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("alla");
     const [showNewModal, setShowNewModal] = useState(false);
+    const [page, setPage] = useState(0);
+    const PAGE_SIZE = 10;
 
     const fetchOrders = async () => {
         try {
@@ -341,6 +343,12 @@ export default function AdminOrders({ products, token, searchQuery }) {
         }
         return true;
     });
+
+    // Reset page when filter or search changes
+    useEffect(() => { setPage(0); }, [filter, searchQuery]);
+
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
     // Counts for filter tabs
     const counts = {
@@ -422,11 +430,11 @@ export default function AdminOrders({ products, token, searchQuery }) {
                     </button>
                 </div>
 
-                {filtered.length === 0 ? (
+                {paginated.length === 0 ? (
                     <p className="text-gray-500 text-sm py-8 text-center">Inga ordrar hittades</p>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {filtered.map((order) => (
+                        {paginated.map((order) => (
                             <div key={order.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
                                 <StatusBadge paid={order.payment_status === "betald"} pickedUp={order.pickup_status === "hamtad"} />
 
@@ -486,6 +494,30 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-4">
+                        <p className="text-sm text-gray-500">
+                            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} av {filtered.length}
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPage(page - 1)}
+                                disabled={page === 0}
+                                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                Föregående
+                            </button>
+                            <button
+                                onClick={() => setPage(page + 1)}
+                                disabled={page >= totalPages - 1}
+                                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                Nästa
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
