@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import { SmartImage } from "../SmartImage";
 import { NEW_PRODUCT_LABEL } from "../../constants";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-function StatCard({ icon, value, label, color }) {
+function StatCard({ icon, value, label, color, onClick }) {
     const colorMap = {
         blue: "bg-blue-50 text-blue-600",
         green: "bg-green-50 text-green-600",
@@ -14,7 +15,10 @@ function StatCard({ icon, value, label, color }) {
     };
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+        <div
+            onClick={onClick}
+            className={`bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4 ${onClick ? "cursor-pointer hover:border-gray-300 transition-colors" : ""}`}
+        >
             <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colorMap[color] || colorMap.blue}`}>
                 {icon}
             </div>
@@ -27,7 +31,9 @@ function StatCard({ icon, value, label, color }) {
 }
 
 export default function AdminDashboard({ products, categories }) {
+    const navigate = useNavigate();
     const [consentStats, setConsentStats] = useState({ accepted: 0, declined: 0 });
+    const [showLowStock, setShowLowStock] = useState(false);
 
     useEffect(() => {
         axios.get(`${API_URL}/consent-stats`).then(res => setConsentStats(res.data)).catch(() => {});
@@ -74,6 +80,7 @@ export default function AdminDashboard({ products, categories }) {
                     color="blue"
                     value={products?.length || 0}
                     label="Produkter"
+                    onClick={() => navigate("/admin/products")}
                     icon={
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -84,6 +91,7 @@ export default function AdminDashboard({ products, categories }) {
                     color="purple"
                     value={categories?.length || 0}
                     label="Kategorier"
+                    onClick={() => navigate("/admin/categories")}
                     icon={
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
@@ -94,6 +102,7 @@ export default function AdminDashboard({ products, categories }) {
                     color="green"
                     value={totalStock}
                     label="Totalt i lager"
+                    onClick={() => navigate("/admin/products")}
                     icon={
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -104,6 +113,7 @@ export default function AdminDashboard({ products, categories }) {
                     color="orange"
                     value={lowStockCount}
                     label="Lågt lager"
+                    onClick={() => setShowLowStock(!showLowStock)}
                     icon={
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -111,6 +121,39 @@ export default function AdminDashboard({ products, categories }) {
                     }
                 />
             </div>
+
+            {showLowStock && (() => {
+                const lowStockProducts = (products || []).filter((p) => {
+                    const stock = getProductStock(p);
+                    return stock > 0 && stock <= 3;
+                });
+                return lowStockProducts.length > 0 ? (
+                    <div className="bg-white rounded-xl border border-orange-200 p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Lågt lager ({lowStockProducts.length})</h2>
+                        <div className="divide-y divide-gray-100">
+                            {lowStockProducts.map((p) => (
+                                <div key={p.id} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
+                                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
+                                        {p.main_image || (p.images && p.images[0]) ? (
+                                            <SmartImage src={p.main_image || p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">—</div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-900">{p.name}</p>
+                                    </div>
+                                    <span className="text-sm font-semibold text-orange-600">{getProductStock(p)} kvar</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-xl border border-gray-100 p-6 text-center text-gray-500 text-sm">
+                        Inga produkter med lågt lager
+                    </div>
+                );
+            })()}
 
             {/* Cookie Consent Stats */}
             {(consentStats.accepted > 0 || consentStats.declined > 0) && (
