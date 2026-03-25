@@ -12,6 +12,7 @@ import AdminCategories from "./admin/AdminCategories";
 import AdminImageTools from "./admin/AdminImageTools";
 import AdminSettings from "./admin/AdminSettings";
 import AdminOrders from "./admin/AdminOrders";
+import AdminCustomers from "./admin/AdminCustomers";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -63,6 +64,7 @@ function AdminPage({ token, login, logout }) {
             <Routes>
                 <Route index element={<AdminDashboard products={products} categories={categories} />} />
                 <Route path="orders" element={<AdminOrders products={products} token={token} searchQuery={searchQuery} />} />
+                <Route path="customers" element={<AdminCustomers token={token} searchQuery={searchQuery} />} />
                 <Route path="products" element={<AdminProducts products={products} categories={categories} token={token} fetchProducts={fetchProducts} searchQuery={searchQuery} />} />
                 <Route path="categories" element={<AdminCategories categories={categories} token={token} fetchCategories={fetchCategories} />} />
                 <Route path="image-tools" element={<AdminImageTools token={token} />} />

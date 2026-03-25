@@ -124,6 +124,24 @@ def update_order_notes(
     return {"message": "Notes updated"}
 
 
+@router.put("/customer/update")
+def update_customer(body: dict = Body(...), request: Request = None, _=Depends(require_admin)):
+    """Update customer info across all their orders."""
+    old_name = body.get("old_name", "")
+    new_name = body.get("customer_name", old_name)
+    email = body.get("customer_email", "")
+    phone = body.get("customer_phone", "")
+
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE orders SET customer_name = ?, customer_email = ?, customer_phone = ? WHERE customer_name = ?",
+            (new_name, email, phone, old_name)
+        )
+
+    return {"message": "Customer updated"}
+
+
 @router.put("/{order_id}")
 def update_order(order_id: int, body: dict = Body(...), request: Request = None, _=Depends(require_admin)):
     """Update an entire order."""
