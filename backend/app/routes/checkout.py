@@ -1,10 +1,13 @@
 """
 Checkout and payment endpoints.
 """
+from datetime import datetime
+
 import stripe
 from fastapi import APIRouter, Body, HTTPException
 
 from ..config import settings
+from ..database import get_db_context
 from ..services.email import EmailService
 from ..services.inventory import InventoryService
 
@@ -13,6 +16,59 @@ from ..services.inventory import InventoryService
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 router = APIRouter(tags=["checkout"])
+
+
+def _save_order(customer, items, payment_method, delivery_method="pickup", delivery_cost=0, items_total=0):
+    """Save an order to the database."""
+    if not items_total:
+        items_total = sum(item.get("price", 0) * item.get("quantity", 1) for item in items)
+    total = items_total + delivery_cost
+
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        customer_name = f"{customer.get('firstName', '')} {customer.get('lastName', '')}".strip()
+
+        payment_status = "betald" if payment_method == "stripe" else "ej_betald"
+        pickup_status = "ej_hamtad"
+
+        cursor.execute(
+            """INSERT INTO orders (customer_name, customer_email, customer_phone,
+               delivery_method, payment_method, items_total, delivery_cost, total,
+               payment_status, pickup_status, notes, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                customer_name,
+                customer.get("email", ""),
+                customer.get("phone", ""),
+                delivery_method,
+                payment_method,
+                items_total,
+                delivery_cost,
+                total,
+                payment_status,
+                pickup_status,
+                "",
+                datetime.utcnow().isoformat(),
+            )
+        )
+        order_id = cursor.lastrowid
+
+        for item in items:
+            cursor.execute(
+                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    order_id,
+                    item.get("id"),
+                    item.get("name", ""),
+                    item.get("selectedSize", ""),
+                    item.get("color", ""),
+                    item.get("quantity", 1),
+                    item.get("price", 0),
+                )
+            )
+
+    return order_id
 
 
 @router.get("/stripe-publishable-key")
@@ -79,7 +135,16 @@ def create_order(order: dict = Body(...)):
     
     # Update stock levels
     InventoryService.reduce_stock(items)
-    
+
+    # Save order to database
+    try:
+        delivery_method = order.get("deliveryMethod", "pickup")
+        delivery_cost = order.get("deliveryCost", 0)
+        items_total = order.get("itemsTotal", 0)
+        _save_order(customer, items, payment, delivery_method, delivery_cost, items_total)
+    except Exception as e:
+        print(f"Failed to save order to database: {e}")
+
     return {"message": "Order received, email sent, and stock updated"}
 
 
@@ -107,7 +172,16 @@ def confirm_payment(payment_data: dict = Body(...)):
         
         # Update stock levels
         InventoryService.reduce_stock(items)
-        
+
+        # Save order to database
+        try:
+            delivery_method = order.get("deliveryMethod", "pickup")
+            delivery_cost = order.get("deliveryCost", 0)
+            items_total = order.get("itemsTotal", 0)
+            _save_order(customer, items, "stripe", delivery_method, delivery_cost, items_total)
+        except Exception as e:
+            print(f"Failed to save order to database: {e}")
+
         return {"message": "Payment confirmed and order processed"}
         
     except HTTPException:

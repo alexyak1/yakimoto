@@ -13,10 +13,10 @@ from .config import settings
 _VALID_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
 # Allowed tables for migrations (whitelist)
-_ALLOWED_TABLES = frozenset({'products', 'product_images', 'product_sizes', 'categories', 'product_categories'})
+_ALLOWED_TABLES = frozenset({'products', 'product_images', 'product_sizes', 'categories', 'product_categories', 'orders', 'order_items'})
 
 # Allowed column types for migrations (whitelist)
-_ALLOWED_TYPES = frozenset({'TEXT', 'INTEGER', 'REAL', 'BLOB', 'INTEGER DEFAULT 0'})
+_ALLOWED_TYPES = frozenset({'TEXT', 'INTEGER', 'REAL', 'BLOB', 'INTEGER DEFAULT 0', "TEXT DEFAULT 'ej_betald'", "TEXT DEFAULT 'ej_hamtad'"})
 
 # Ensure directories exist
 os.makedirs(settings.DATA_DIR, exist_ok=True)
@@ -111,6 +111,40 @@ def setup_database():
         )
     """)
     
+    # Orders table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_name TEXT,
+            customer_email TEXT,
+            customer_phone TEXT,
+            delivery_method TEXT,
+            payment_method TEXT,
+            items_total INTEGER,
+            delivery_cost INTEGER DEFAULT 0,
+            total INTEGER,
+            payment_status TEXT DEFAULT 'ej_betald',
+            pickup_status TEXT DEFAULT 'ej_hamtad',
+            notes TEXT,
+            created_at TEXT
+        )
+    """)
+
+    # Order items table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER,
+            product_id INTEGER,
+            product_name TEXT,
+            size TEXT,
+            color TEXT,
+            quantity INTEGER,
+            price INTEGER,
+            FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+        )
+    """)
+
     # Add columns if they don't exist (migration support)
     _run_migrations(conn)
     
@@ -154,6 +188,8 @@ def _run_migrations(conn):
         ("products", "new_until", "TEXT"),
         ("product_images", "is_main", "INTEGER DEFAULT 0"),
         ("categories", "display_order", "INTEGER DEFAULT 0"),
+        ("orders", "payment_status", "TEXT DEFAULT 'ej_betald'"),
+        ("orders", "pickup_status", "TEXT DEFAULT 'ej_hamtad'"),
     ]
     
     for table, column, col_type in migrations:

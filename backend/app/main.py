@@ -15,6 +15,7 @@ from .routes import (
     auth_router,
     checkout_router,
     admin_router,
+    orders_router,
 )
 
 
@@ -44,6 +45,7 @@ app.include_router(categories_router)
 app.include_router(auth_router)
 app.include_router(checkout_router)
 app.include_router(admin_router)
+app.include_router(orders_router)
 
 # Initialize database on startup
 init_db()
