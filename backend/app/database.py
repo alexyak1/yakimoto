@@ -199,6 +199,8 @@ def _run_migrations(conn):
         ("categories", "display_order", "INTEGER DEFAULT 0"),
         ("orders", "payment_status", "TEXT DEFAULT 'ej_betald'"),
         ("orders", "pickup_status", "TEXT DEFAULT 'ej_hamtad'"),
+        ("products", "cost", "INTEGER"),
+        ("order_items", "cost", "INTEGER"),
     ]
     
     for table, column, col_type in migrations:

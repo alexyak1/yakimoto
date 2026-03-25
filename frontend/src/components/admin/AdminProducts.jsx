@@ -24,6 +24,10 @@ function ProductForm({ form, setForm, categories, sizes, setSizes, imageFiles, s
                     <input type="number" value={form.price} onChange={(e) => setForm(prev => ({ ...prev, price: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="0" />
                 </div>
             </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Inköpspris (SEK)</label>
+                <input type="number" value={form.cost} onChange={(e) => setForm(prev => ({ ...prev, profit: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="0" />
+            </div>
 
             {/* Discount */}
             <div>
@@ -165,7 +169,7 @@ export default function AdminProducts({ products, categories, token, fetchProduc
 
     // Create form state
     const [createForm, setCreateForm] = useState({
-        name: "", price: "", color: "", gsm: "", age_group: "", description: "",
+        name: "", price: "", cost: "", color: "", gsm: "", age_group: "", description: "",
         sale_price: "", discount_percent: "", sale_type: "percent",
         category_ids: [], is_new: false, new_duration: "", category: "",
     });
@@ -174,7 +178,7 @@ export default function AdminProducts({ products, categories, token, fetchProduc
 
     // Edit form state
     const [editForm, setEditForm] = useState({
-        name: "", price: "", color: "", gsm: "", age_group: "", description: "",
+        name: "", price: "", cost: "", color: "", gsm: "", age_group: "", description: "",
         sale_price: "", discount_percent: "", sale_type: "percent",
         category_ids: [], is_new: false, new_duration: "", new_until: "", category: "",
     });
@@ -198,6 +202,7 @@ export default function AdminProducts({ products, categories, token, fetchProduc
         const formData = new FormData();
         formData.append("name", form.name);
         formData.append("price", form.price);
+        if (form.cost) formData.append("cost", form.cost);
         const sizesObj = sizes.reduce((acc, cur) => {
             if (cur.size.trim()) {
                 if (!acc[cur.size]) acc[cur.size] = { online: 0, club: 0 };
@@ -276,8 +281,8 @@ export default function AdminProducts({ products, categories, token, fetchProduc
             }
         }
         setEditForm({
-            name: product.name, price: product.price, color: product.color || "",
-            gsm: product.gsm || "", age_group: product.age_group || "",
+            name: product.name, price: product.price, cost: product.cost || "",
+            color: product.color || "", gsm: product.gsm || "", age_group: product.age_group || "",
             description: product.description || "", sale_price: product.sale_price || "",
             discount_percent: product.discount_percent || "",
             sale_type: product.discount_percent ? "percent" : "price",

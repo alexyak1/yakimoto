@@ -54,17 +54,25 @@ def _save_order(customer, items, payment_method, delivery_method="pickup", deliv
         order_id = cursor.lastrowid
 
         for item in items:
+            item_cost = None
+            pid = item.get("id")
+            if pid:
+                cursor.execute("SELECT cost FROM products WHERE id = ?", (pid,))
+                row = cursor.fetchone()
+                if row:
+                    item_cost = row["cost"]
             cursor.execute(
-                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price, cost)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     order_id,
-                    item.get("id"),
+                    pid,
                     item.get("name", ""),
                     item.get("selectedSize", ""),
                     item.get("color", ""),
                     item.get("quantity", 1),
                     item.get("price", 0),
+                    item_cost,
                 )
             )
 

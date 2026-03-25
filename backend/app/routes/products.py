@@ -268,6 +268,7 @@ def create_product(
     description: str = Form(None),
     sale_price: str = Form(None),
     discount_percent: str = Form(None),
+    cost: str = Form(None),
     category_ids: str = Form(None),
     is_new: str = Form(None),
     new_until: str = Form(None),
@@ -275,29 +276,37 @@ def create_product(
 ):
     conn = get_db()
     cursor = conn.cursor()
-    
+
     # Calculate sale price
     final_sale_price, discount_percent_to_save = calculate_sale_price(
         price, sale_price, discount_percent
     )
-    
+
+    # Parse cost
+    cost_val = None
+    if cost and cost.strip():
+        try:
+            cost_val = int(float(cost))
+        except (ValueError, TypeError):
+            pass
+
     # Normalize sizes
     try:
         sizes_parsed = json.loads(sizes) if isinstance(sizes, str) else sizes
         sizes = json.dumps(normalize_sizes(sizes_parsed))
     except (json.JSONDecodeError, TypeError):
         pass
-    
+
     # Parse is_new
     is_new_val = 1 if is_new and is_new.lower() in ('true', '1', 'yes') else 0
     new_until_val = new_until if new_until and new_until.strip() else None
-    
+
     # Insert product
     cursor.execute(
-        """INSERT INTO products 
-           (name, price, sizes, category, color, gsm, age_group, description, sale_price, discount_percent, is_new, new_until) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (name, price, sizes, category, color, gsm, age_group, description, final_sale_price, discount_percent_to_save, is_new_val, new_until_val)
+        """INSERT INTO products
+           (name, price, sizes, category, color, gsm, age_group, description, sale_price, discount_percent, is_new, new_until, cost)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (name, price, sizes, category, color, gsm, age_group, description, final_sale_price, discount_percent_to_save, is_new_val, new_until_val, cost_val)
     )
     product_id = cursor.lastrowid
     
@@ -335,6 +344,7 @@ async def update_product(
     description: str = Form(None),
     sale_price: str = Form(None),
     discount_percent: str = Form(None),
+    cost: str = Form(None),
     category_ids: str = Form(None),
     is_new: str = Form(None),
     new_until: str = Form(None),
@@ -342,32 +352,40 @@ async def update_product(
 ):
     conn = get_db()
     cursor = conn.cursor()
-    
+
     # Calculate sale price
     final_sale_price, discount_percent_to_save = calculate_sale_price(
         int(price), sale_price, discount_percent
     )
-    
+
+    # Parse cost
+    cost_val = None
+    if cost and cost.strip():
+        try:
+            cost_val = int(float(cost))
+        except (ValueError, TypeError):
+            pass
+
     # Normalize sizes
     try:
         sizes_parsed = json.loads(sizes) if isinstance(sizes, str) else sizes
         sizes = json.dumps(normalize_sizes(sizes_parsed))
     except (json.JSONDecodeError, TypeError):
         pass
-    
+
     # Parse is_new
     is_new_val = 1 if is_new and is_new.lower() in ('true', '1', 'yes') else 0
     new_until_val = new_until if new_until and new_until.strip() else None
-    
+
     # Update product
     cursor.execute(
-        """UPDATE products 
-           SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?, 
+        """UPDATE products
+           SET name = ?, price = ?, sizes = ?, category = ?, color = ?, gsm = ?,
                age_group = ?, description = ?, sale_price = ?, discount_percent = ?,
-               is_new = ?, new_until = ? 
+               is_new = ?, new_until = ?, cost = ?
            WHERE id = ?""",
-        (name, price, sizes, category, color, gsm, age_group, description, 
-         final_sale_price, discount_percent_to_save, is_new_val, new_until_val, product_id)
+        (name, price, sizes, category, color, gsm, age_group, description,
+         final_sale_price, discount_percent_to_save, is_new_val, new_until_val, cost_val, product_id)
     )
     
     # Update categories

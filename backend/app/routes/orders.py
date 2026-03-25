@@ -159,9 +159,17 @@ def update_order(order_id: int, body: dict = Body(...), request: Request = None,
         # Replace items
         cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
         for item in items:
+            item_cost = item.get("cost")
+            if item_cost is None:
+                pid = item.get("product_id") or item.get("id")
+                if pid:
+                    cursor.execute("SELECT cost FROM products WHERE id = ?", (pid,))
+                    row = cursor.fetchone()
+                    if row:
+                        item_cost = row["cost"]
             cursor.execute(
-                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price, cost)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     order_id,
                     item.get("product_id") or item.get("id"),
@@ -170,6 +178,7 @@ def update_order(order_id: int, body: dict = Body(...), request: Request = None,
                     item.get("color", ""),
                     item.get("quantity", 1),
                     item.get("price", 0),
+                    item_cost,
                 )
             )
 
@@ -230,9 +239,17 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
         order_id = cursor.lastrowid
 
         for item in items:
+            item_cost = item.get("cost")
+            if item_cost is None:
+                pid = item.get("product_id") or item.get("id")
+                if pid:
+                    cursor.execute("SELECT cost FROM products WHERE id = ?", (pid,))
+                    row = cursor.fetchone()
+                    if row:
+                        item_cost = row["cost"]
             cursor.execute(
-                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price, cost)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     order_id,
                     item.get("product_id") or item.get("id"),
@@ -241,6 +258,7 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
                     item.get("color", ""),
                     item.get("quantity", 1),
                     item.get("price", 0),
+                    item_cost,
                 )
             )
 

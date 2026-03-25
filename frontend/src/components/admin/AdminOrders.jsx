@@ -88,6 +88,7 @@ function OrderModal({ products, onClose, onSave, order }) {
                 product_name: product.name,
                 price: product.sale_price || product.price,
                 color: product.color || "",
+                cost: product.cost || 0,
             };
             setItems(updated);
         }
@@ -568,15 +569,23 @@ export default function AdminOrders({ products, token, searchQuery }) {
                         {sortedMonths.map((month) => {
                             const monthOrders = byMonth[month];
                             const monthRevenue = monthOrders.reduce((s, o) => s + (o.total || 0), 0);
+                            const monthProfit = monthOrders.reduce((s, o) =>
+                                s + (o.items || []).reduce((is2, item) => {
+                                    const itemCost = item.cost || 0;
+                                    const itemPrice = item.price || 0;
+                                    return is2 + ((itemPrice - itemCost) * (item.quantity || 1));
+                                }, 0), 0);
 
                             // Product breakdown
                             const productTotals = {};
                             monthOrders.forEach((o) => {
                                 (o.items || []).forEach((item) => {
                                     const name = item.product_name || "Okänd";
-                                    if (!productTotals[name]) productTotals[name] = { qty: 0, revenue: 0 };
-                                    productTotals[name].qty += item.quantity || 1;
-                                    productTotals[name].revenue += (item.price || 0) * (item.quantity || 1);
+                                    if (!productTotals[name]) productTotals[name] = { qty: 0, revenue: 0, profit: 0 };
+                                    const qty = item.quantity || 1;
+                                    productTotals[name].qty += qty;
+                                    productTotals[name].revenue += (item.price || 0) * qty;
+                                    productTotals[name].profit += ((item.price || 0) - (item.cost || 0)) * qty;
                                 });
                             });
 
@@ -587,6 +596,9 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                         <div className="flex items-center gap-4">
                                             <span className="text-sm text-gray-500">{monthOrders.length} ordrar</span>
                                             <span className="text-base font-bold text-gray-900">{monthRevenue.toLocaleString("sv-SE")} SEK</span>
+                                            {monthProfit > 0 && (
+                                                <span className="text-sm font-semibold text-green-600">+{monthProfit.toLocaleString("sv-SE")} vinst</span>
+                                            )}
                                         </div>
                                     </div>
 
@@ -624,6 +636,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                                     .map(([name, data]) => (
                                                         <span key={name} className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-lg text-xs text-gray-700">
                                                             {name} <span className="text-gray-400">x{data.qty}</span> <span className="font-medium">{data.revenue.toLocaleString("sv-SE")} kr</span>
+                                                            {data.profit > 0 && <span className="text-green-600">+{data.profit.toLocaleString("sv-SE")}</span>}
                                                         </span>
                                                     ))}
                                             </div>
