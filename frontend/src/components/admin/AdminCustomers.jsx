@@ -17,24 +17,25 @@ export default function AdminCustomers({ token, searchQuery }) {
             .finally(() => setLoading(false));
     }, []);
 
-    // Group orders by customer name
+    // Group orders by customer name (normalized)
     const customers = {};
     orders.forEach(o => {
-        const name = o.customer_name || "Okänd";
-        if (!customers[name]) {
-            customers[name] = {
-                name,
+        const rawName = (o.customer_name || "Okänd").trim();
+        const key = rawName.toLowerCase();
+        if (!customers[key]) {
+            customers[key] = {
+                name: rawName,
                 email: o.customer_email || "",
                 phone: o.customer_phone || "",
                 orders: [],
                 totalSpent: 0,
             };
         }
-        customers[name].orders.push(o);
-        customers[name].totalSpent += o.total || 0;
+        customers[key].orders.push(o);
+        customers[key].totalSpent += o.total || 0;
         // Keep latest contact info
-        if (o.customer_email) customers[name].email = o.customer_email;
-        if (o.customer_phone) customers[name].phone = o.customer_phone;
+        if (o.customer_email) customers[key].email = o.customer_email;
+        if (o.customer_phone) customers[key].phone = o.customer_phone;
     });
 
     const customerList = Object.values(customers)

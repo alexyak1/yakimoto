@@ -128,7 +128,7 @@ def update_order_notes(
 def update_customer(body: dict = Body(...), request: Request = None, _=Depends(require_admin)):
     """Update customer info across all their orders."""
     old_name = body.get("old_name", "")
-    new_name = body.get("customer_name", old_name)
+    new_name = body.get("customer_name", old_name).strip()
     email = body.get("customer_email", "")
     phone = body.get("customer_phone", "")
 
@@ -160,9 +160,9 @@ def update_order(order_id: int, body: dict = Body(...), request: Request = None,
                notes = ?, created_at = ?, items_total = ?, total = ?
                WHERE id = ?""",
             (
-                body.get("customer_name", ""),
-                body.get("customer_email", ""),
-                body.get("customer_phone", ""),
+                body.get("customer_name", "").strip(),
+                body.get("customer_email", "").strip(),
+                body.get("customer_phone", "").strip(),
                 body.get("payment_method", ""),
                 body.get("payment_status", "ej_betald"),
                 body.get("pickup_status", "ej_hamtad"),
@@ -224,7 +224,7 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
     with get_db_context() as conn:
         cursor = conn.cursor()
 
-        customer_name = body.get("customer_name", "")
+        customer_name = body.get("customer_name", "").strip()
         items = body.get("items", [])
         payment_method = body.get("payment_method", "")
         notes = body.get("notes", "")
