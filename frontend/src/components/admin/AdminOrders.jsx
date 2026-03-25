@@ -51,18 +51,23 @@ function StatusBadge({ paid, pickedUp }) {
     );
 }
 
-function NewOrderModal({ products, onClose, onSave }) {
+function OrderModal({ products, onClose, onSave, order }) {
+    const isEdit = !!order;
     const [form, setForm] = useState({
-        customer_name: "",
-        customer_email: "",
-        customer_phone: "",
-        payment_method: "",
-        notes: "",
-        payment_status: "ej_betald",
-        pickup_status: "ej_hamtad",
-        created_at: new Date().toISOString().slice(0, 10),
+        customer_name: order?.customer_name || "",
+        customer_email: order?.customer_email || "",
+        customer_phone: order?.customer_phone || "",
+        payment_method: order?.payment_method || "",
+        notes: order?.notes || "",
+        payment_status: order?.payment_status || "ej_betald",
+        pickup_status: order?.pickup_status || "ej_hamtad",
+        created_at: order?.created_at ? order.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
     });
-    const [items, setItems] = useState([{ product_name: "", size: "", color: "", quantity: 1, price: 0 }]);
+    const [items, setItems] = useState(
+        order?.items?.length
+            ? order.items.map(i => ({ ...i, product_id: i.product_id || "", size: i.size || "", color: i.color || "", quantity: i.quantity || 1, price: i.price || 0 }))
+            : [{ product_name: "", size: "", color: "", quantity: 1, price: 0 }]
+    );
     const [saving, setSaving] = useState(false);
 
     const addItem = () => setItems([...items, { product_name: "", size: "", color: "", quantity: 1, price: 0 }]);
@@ -93,16 +98,16 @@ function NewOrderModal({ products, onClose, onSave }) {
             toast.error("Ange kundnamn");
             return;
         }
-        if (items.every(i => !i.product_name.trim())) {
+        if (items.every(i => !i.product_name?.trim())) {
             toast.error("Lägg till minst en produkt");
             return;
         }
         setSaving(true);
         try {
-            await onSave({ ...form, items: items.filter(i => i.product_name.trim()) });
+            await onSave({ ...form, items: items.filter(i => i.product_name?.trim()) });
             onClose();
         } catch {
-            toast.error("Kunde inte skapa order");
+            toast.error(isEdit ? "Kunde inte uppdatera order" : "Kunde inte skapa order");
         } finally {
             setSaving(false);
         }
@@ -111,7 +116,7 @@ function NewOrderModal({ products, onClose, onSave }) {
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
-                <h2 className="text-xl font-bold mb-4">Ny order</h2>
+                <h2 className="text-xl font-bold mb-4">{isEdit ? "Redigera order" : "Ny order"}</h2>
 
                 <div className="space-y-3">
                     <div>
@@ -261,7 +266,7 @@ function NewOrderModal({ products, onClose, onSave }) {
                         disabled={saving}
                         className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
-                        {saving ? "Sparar..." : "Skapa order"}
+                        {saving ? "Sparar..." : isEdit ? "Spara" : "Skapa order"}
                     </button>
                 </div>
             </div>
@@ -273,7 +278,8 @@ export default function AdminOrders({ products, token, searchQuery }) {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("alla");
-    const [showNewModal, setShowNewModal] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [editingOrder, setEditingOrder] = useState(null);
     const [page, setPage] = useState(0);
     const PAGE_SIZE = 10;
 
@@ -324,6 +330,14 @@ export default function AdminOrders({ products, token, searchQuery }) {
             headers: { Authorization: `Bearer ${token}` },
         });
         toast.success("Order skapad");
+        fetchOrders();
+    };
+
+    const updateOrder = async (orderData) => {
+        await axios.put(`${API_URL}/orders/${editingOrder.id}`, orderData, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        toast.success("Order uppdaterad");
         fetchOrders();
     };
 
@@ -420,7 +434,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-gray-900">Ordrar</h2>
                     <button
-                        onClick={() => setShowNewModal(true)}
+                        onClick={() => { setEditingOrder(null); setShowModal(true); }}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -482,6 +496,15 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                         ))}
                                     </select>
 
+                                    <button
+                                        onClick={() => { setEditingOrder(order); setShowModal(true); }}
+                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="Redigera"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
                                     <button
                                         onClick={() => deleteOrder(order.id)}
                                         className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -613,11 +636,12 @@ export default function AdminOrders({ products, token, searchQuery }) {
                 );
             })()}
 
-            {showNewModal && (
-                <NewOrderModal
+            {showModal && (
+                <OrderModal
                     products={products}
-                    onClose={() => setShowNewModal(false)}
-                    onSave={createOrder}
+                    order={editingOrder}
+                    onClose={() => { setShowModal(false); setEditingOrder(null); }}
+                    onSave={editingOrder ? updateOrder : createOrder}
                 />
             )}
         </div>

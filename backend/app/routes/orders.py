@@ -124,6 +124,58 @@ def update_order_notes(
     return {"message": "Notes updated"}
 
 
+@router.put("/{order_id}")
+def update_order(order_id: int, body: dict = Body(...), request: Request = None, _=Depends(require_admin)):
+    """Update an entire order."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM orders WHERE id = ?", (order_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        items = body.get("items", [])
+        items_total = sum(item.get("price", 0) * item.get("quantity", 1) for item in items)
+
+        cursor.execute(
+            """UPDATE orders SET customer_name = ?, customer_email = ?, customer_phone = ?,
+               payment_method = ?, payment_status = ?, pickup_status = ?,
+               notes = ?, created_at = ?, items_total = ?, total = ?
+               WHERE id = ?""",
+            (
+                body.get("customer_name", ""),
+                body.get("customer_email", ""),
+                body.get("customer_phone", ""),
+                body.get("payment_method", ""),
+                body.get("payment_status", "ej_betald"),
+                body.get("pickup_status", "ej_hamtad"),
+                body.get("notes", ""),
+                body.get("created_at") or datetime.utcnow().isoformat(),
+                items_total,
+                items_total,
+                order_id,
+            )
+        )
+
+        # Replace items
+        cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+        for item in items:
+            cursor.execute(
+                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    order_id,
+                    item.get("product_id") or item.get("id"),
+                    item.get("product_name") or item.get("name", ""),
+                    item.get("size", ""),
+                    item.get("color", ""),
+                    item.get("quantity", 1),
+                    item.get("price", 0),
+                )
+            )
+
+    return {"message": "Order updated"}
+
+
 @router.delete("/{order_id}")
 def delete_order(order_id: int, request: Request, _=Depends(require_admin)):
     """Delete an order."""
