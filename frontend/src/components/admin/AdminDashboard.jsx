@@ -57,7 +57,7 @@ export default function AdminDashboard({ products, categories }) {
             }
             return s + (typeof v === "number" ? v : 0);
         }, 0);
-        return stock > 0 && stock <= 3;
+        return stock <= 3;
     }).length;
 
     const getProductStock = (product) => {
@@ -125,7 +125,7 @@ export default function AdminDashboard({ products, categories }) {
             {showLowStock && (() => {
                 const lowStockProducts = (products || []).filter((p) => {
                     const stock = getProductStock(p);
-                    return stock > 0 && stock <= 3;
+                    return stock <= 3;
                 });
                 return lowStockProducts.length > 0 ? (
                     <div className="bg-white rounded-xl border border-orange-200 p-6">
