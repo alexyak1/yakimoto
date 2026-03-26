@@ -49,16 +49,17 @@ export default function AdminDashboard({ products, categories }) {
         }, 0);
     }, 0);
 
-    const lowStockCount = (products || []).filter((p) => {
-        const sizes = p.sizes || {};
-        const stock = Object.values(sizes).reduce((s, v) => {
-            if (typeof v === "object" && v !== null) {
-                return s + (v.online || 0) + (v.club || 0);
-            }
-            return s + (typeof v === "number" ? v : 0);
-        }, 0);
-        return stock <= 3;
-    }).length;
+    const getLowStockSizes = (product) => {
+        const sizes = product.sizes || {};
+        const result = [];
+        for (const [size, v] of Object.entries(sizes)) {
+            const qty = typeof v === "object" && v !== null ? (v.online || 0) + (v.club || 0) : (typeof v === "number" ? v : 0);
+            if (qty <= 3) result.push({ size, qty });
+        }
+        return result;
+    };
+
+    const lowStockCount = (products || []).filter((p) => getLowStockSizes(p).length > 0).length;
 
     const getProductStock = (product) => {
         const sizes = product.sizes || {};
@@ -123,29 +124,31 @@ export default function AdminDashboard({ products, categories }) {
             </div>
 
             {showLowStock && (() => {
-                const lowStockProducts = (products || []).filter((p) => {
-                    const stock = getProductStock(p);
-                    return stock <= 3;
-                });
+                const lowStockProducts = (products || []).filter((p) => getLowStockSizes(p).length > 0);
                 return lowStockProducts.length > 0 ? (
                     <div className="bg-white rounded-xl border border-orange-200 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">Lågt lager ({lowStockProducts.length})</h2>
                         <div className="divide-y divide-gray-100">
-                            {lowStockProducts.map((p) => (
-                                <div key={p.id} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
-                                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
-                                        {p.main_image || (p.images && p.images[0]) ? (
-                                            <SmartImage src={p.main_image || p.images[0]} alt={p.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">—</div>
-                                        )}
+                            {lowStockProducts.map((p) => {
+                                const lowSizes = getLowStockSizes(p);
+                                return (
+                                    <div key={p.id} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
+                                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
+                                            {p.main_image || (p.images && p.images[0]) ? (
+                                                <SmartImage src={p.main_image || p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">—</div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-gray-900">{p.name}</p>
+                                            <p className="text-sm text-gray-500">
+                                                {lowSizes.map(s => `${s.size}: ${s.qty === 0 ? "slut" : s.qty + " kvar"}`).join(", ")}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-gray-900">{p.name}</p>
-                                    </div>
-                                    <span className="text-sm font-semibold text-orange-600">{getProductStock(p)} kvar</span>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 ) : (
