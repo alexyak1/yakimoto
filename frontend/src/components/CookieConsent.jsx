@@ -54,13 +54,13 @@ export default function CookieConsent({ onAccept }) {
                         onClick={decline}
                         className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                     >
-                        Avvisa
+                        Endast nödvändiga
                     </button>
                     <button
                         onClick={accept}
                         className="px-4 py-2 text-sm text-white bg-black rounded-lg hover:bg-gray-800"
                     >
-                        Acceptera
+                        Acceptera alla
                     </button>
                 </div>
             </div>

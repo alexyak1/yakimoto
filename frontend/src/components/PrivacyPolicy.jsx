@@ -41,9 +41,14 @@ export default function PrivacyPolicy() {
                 <section>
                     <h2 className="text-xl font-semibold text-gray-900 mb-3">Cookies och analys</h2>
                     <p>
-                        Vi använder Google Analytics och Google Ads för att analysera trafik och mäta
-                        annonsresultat. Dessa tjänster sätter cookies i din webbläsare. Cookies laddas
-                        först efter att du gett ditt samtycke via cookiebannern.
+                        Vi använder Google Analytics för att analysera trafik på webbplatsen.
+                        Detta betraktas som en nödvändig funktion för att driva och förbättra vår tjänst
+                        och laddas automatiskt.
+                    </p>
+                    <p className="mt-2">
+                        Vi använder även Google Ads för att mäta annonsresultat. Dessa cookies
+                        laddas först efter att du gett ditt samtycke via cookiebannern genom
+                        att välja "Acceptera alla".
                     </p>
                     <p className="mt-2">
                         Du kan när som helst återkalla ditt samtycke genom att rensa cookies i din

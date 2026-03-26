@@ -11,7 +11,7 @@ import logo from './assets/logo.png';
 import AdminPage from './components/AdminPage';
 import TimePage from './components/TimePage';
 import axios from 'axios';
-import { initGA, trackPageView, trackAddToCart, trackRemoveFromCart, trackBeginCheckout } from './analytics';
+import { initGA, initAds, trackPageView, trackAddToCart, trackRemoveFromCart, trackBeginCheckout } from './analytics';
 import { isTokenValid, isTokenExpired } from './utils/auth';
 import CookieConsent, { getCookieConsent } from './components/CookieConsent';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -106,10 +106,12 @@ function App() {
     return storedCart ? JSON.parse(storedCart) : [];
   });
 
-  // Initialize Google Analytics only if user has accepted cookies
+  // Always initialize Google Analytics
   useEffect(() => {
+    initGA();
+    // Only load Ads if user accepted all cookies
     if (getCookieConsent() === "accepted") {
-      initGA();
+      initAds();
     }
   }, []);
 
@@ -224,7 +226,7 @@ function App() {
           <Route path="/time" element={<TimePage />} />
           <Route path="/integritetspolicy" element={<PrivacyPolicy />} />
         </Routes>
-        <CookieConsent onAccept={() => initGA()} />
+        <CookieConsent onAccept={() => initAds()} />
       </Router>
     </>
   );

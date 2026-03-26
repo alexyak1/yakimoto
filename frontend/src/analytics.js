@@ -1,38 +1,32 @@
 import ReactGA from 'react-ga4';
 
-// Initialize Google Analytics and Google Ads
+// Initialize Google Analytics (always loaded)
 export const initGA = () => {
   const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
-  const GOOGLE_ADS_ID = import.meta.env.VITE_GOOGLE_ADS_ID;
-  
-  // Load Google Analytics script
+
   if (GA_MEASUREMENT_ID) {
     const gaScript = document.createElement('script');
     gaScript.async = true;
     gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
     document.head.appendChild(gaScript);
-    
-    // Initialize ReactGA
+
     ReactGA.initialize(GA_MEASUREMENT_ID);
-    console.log('Google Analytics initialized with ID:', GA_MEASUREMENT_ID);
-  } else {
-    console.warn('Google Analytics not initialized: VITE_GA_MEASUREMENT_ID not found');
   }
-  
-  // Load Google Ads script
+};
+
+// Initialize Google Ads (only on full consent)
+export const initAds = () => {
+  const GOOGLE_ADS_ID = import.meta.env.VITE_GOOGLE_ADS_ID;
+
   if (GOOGLE_ADS_ID) {
     const adsScript = document.createElement('script');
     adsScript.async = true;
     adsScript.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`;
     document.head.appendChild(adsScript);
-    
-    // Configure Google Ads
+
     if (typeof gtag !== 'undefined') {
       gtag('config', GOOGLE_ADS_ID);
     }
-    console.log('Google Ads initialized with ID:', GOOGLE_ADS_ID);
-  } else {
-    console.warn('Google Ads not initialized: VITE_GOOGLE_ADS_ID not found');
   }
 };
 
