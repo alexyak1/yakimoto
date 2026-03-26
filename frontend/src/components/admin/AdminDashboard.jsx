@@ -54,7 +54,7 @@ export default function AdminDashboard({ products, categories }) {
         const result = [];
         for (const [size, v] of Object.entries(sizes)) {
             const qty = typeof v === "object" && v !== null ? (v.online || 0) + (v.club || 0) : (typeof v === "number" ? v : 0);
-            if (qty <= 3) result.push({ size, qty });
+            if (qty <= 1) result.push({ size, qty });
         }
         return result;
     };
