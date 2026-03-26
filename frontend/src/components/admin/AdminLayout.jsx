@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -77,8 +77,14 @@ const navItems = [
 
 export default function AdminLayout({ children, products, searchQuery, setSearchQuery }) {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [mobileOpen, setMobileOpen] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
+
+    // Close mobile sidebar on navigation
+    useEffect(() => {
+        setMobileOpen(false);
+    }, [location.pathname]);
 
     const isActive = (path) => {
         if (path === "/admin") return location.pathname === "/admin";
@@ -97,62 +103,94 @@ export default function AdminLayout({ children, products, searchQuery, setSearch
 
     const cartCount = totalStock;
 
+    const sidebarContent = (
+        <>
+            <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
+                {!sidebarCollapsed && (
+                    <span className="text-lg font-bold tracking-wider">YAKIMOTO</span>
+                )}
+                <button
+                    onClick={() => { setSidebarCollapsed(!sidebarCollapsed); setMobileOpen(false); }}
+                    className="text-white/70 hover:text-white p-1 hidden md:block"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {sidebarCollapsed ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                        ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                        )}
+                    </svg>
+                </button>
+                <button
+                    onClick={() => setMobileOpen(false)}
+                    className="text-white/70 hover:text-white p-1 md:hidden"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <nav className="flex-1 py-4 space-y-1 px-2">
+                {navItems.map((item) => (
+                    <button
+                        key={item.key}
+                        onClick={() => navigate(item.path)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                            isActive(item.path)
+                                ? "bg-blue-600 text-white"
+                                : "text-white/70 hover:bg-white/10 hover:text-white"
+                        }`}
+                        title={sidebarCollapsed ? item.label : undefined}
+                    >
+                        {item.icon}
+                        {(!sidebarCollapsed || mobileOpen) && <span>{item.label}</span>}
+                    </button>
+                ))}
+            </nav>
+        </>
+    );
+
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden">
-            {/* Sidebar */}
-            <aside
-                className={`${
-                    sidebarCollapsed ? "w-16" : "w-64"
-                } bg-[#1e2640] text-white flex flex-col transition-all duration-300 flex-shrink-0`}
-            >
-                {/* Logo */}
-                <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
-                    {!sidebarCollapsed && (
-                        <span className="text-lg font-bold tracking-wider">YAKIMOTO</span>
-                    )}
-                    <button
-                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        className="text-white/70 hover:text-white p-1"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            {sidebarCollapsed ? (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                            ) : (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                            )}
-                        </svg>
-                    </button>
-                </div>
+            {/* Mobile overlay */}
+            {mobileOpen && (
+                <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
+            )}
 
-                {/* Navigation */}
-                <nav className="flex-1 py-4 space-y-1 px-2">
-                    {navItems.map((item) => (
-                        <button
-                            key={item.key}
-                            onClick={() => navigate(item.path)}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                                isActive(item.path)
-                                    ? "bg-blue-600 text-white"
-                                    : "text-white/70 hover:bg-white/10 hover:text-white"
-                            }`}
-                            title={sidebarCollapsed ? item.label : undefined}
-                        >
-                            {item.icon}
-                            {!sidebarCollapsed && <span>{item.label}</span>}
-                        </button>
-                    ))}
-                </nav>
+            {/* Mobile sidebar */}
+            <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1e2640] text-white flex flex-col transition-transform duration-300 md:hidden ${
+                mobileOpen ? "translate-x-0" : "-translate-x-full"
+            }`}>
+                {sidebarContent}
+            </aside>
+
+            {/* Desktop sidebar */}
+            <aside className={`${
+                sidebarCollapsed ? "w-16" : "w-64"
+            } bg-[#1e2640] text-white hidden md:flex flex-col transition-all duration-300 flex-shrink-0`}>
+                {sidebarContent}
             </aside>
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Top Bar */}
-                <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
-                    <h1 className="text-xl font-semibold text-gray-800">
-                        {navItems.find((i) => isActive(i.path))?.label || "Dashboard"}
-                    </h1>
+                <header className="h-14 md:h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                        {/* Mobile menu button */}
+                        <button
+                            onClick={() => setMobileOpen(true)}
+                            className="p-1.5 text-gray-600 hover:text-gray-900 md:hidden"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                        <h1 className="text-lg md:text-xl font-semibold text-gray-800">
+                            {navItems.find((i) => isActive(i.path))?.label || "Dashboard"}
+                        </h1>
+                    </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 md:gap-4">
                         {/* Search */}
                         <div className="relative">
                             <svg
@@ -168,12 +206,12 @@ export default function AdminLayout({ children, products, searchQuery, setSearch
                                 placeholder="Sök..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
+                                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-32 md:w-48"
                             />
                         </div>
 
-                        {/* Stock indicator */}
-                        <div className="relative p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
+                        {/* Stock indicator - hidden on mobile */}
+                        <div className="relative p-2 text-gray-500 hover:text-gray-700 cursor-pointer hidden md:block">
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
                             </svg>
@@ -184,8 +222,8 @@ export default function AdminLayout({ children, products, searchQuery, setSearch
                             )}
                         </div>
 
-                        {/* Notifications */}
-                        <div className="relative p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
+                        {/* Notifications - hidden on mobile */}
+                        <div className="relative p-2 text-gray-500 hover:text-gray-700 cursor-pointer hidden md:block">
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                             </svg>
@@ -193,7 +231,7 @@ export default function AdminLayout({ children, products, searchQuery, setSearch
                         </div>
 
                         {/* User Avatar */}
-                        <div className="w-9 h-9 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold text-sm cursor-pointer">
+                        <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold text-sm cursor-pointer">
                             A
                         </div>
                     </div>

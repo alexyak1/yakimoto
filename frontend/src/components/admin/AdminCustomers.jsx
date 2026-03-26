@@ -92,40 +92,40 @@ export default function AdminCustomers({ token, searchQuery }) {
                             <div key={customer.name}>
                                 <div
                                     onClick={() => setExpandedCustomer(expandedCustomer === customer.name ? null : customer.name)}
-                                    className="flex items-center gap-4 py-4 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+                                    className="flex items-center gap-3 md:gap-4 py-4 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
                                 >
-                                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                                    <div className="w-9 h-9 md:w-10 md:h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0">
                                         {customer.name.charAt(0).toUpperCase()}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-gray-900">{customer.name}</p>
-                                        <p className="text-sm text-gray-500 truncate">
+                                        <p className="font-medium text-gray-900 truncate">{customer.name}</p>
+                                        <p className="text-xs md:text-sm text-gray-500 truncate">
                                             {[customer.email, customer.phone].filter(Boolean).join(" · ") || "Ingen kontaktinfo"}
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-3 flex-shrink-0">
+                                    <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
                                         <div className="text-right">
                                             <p className="text-sm font-medium text-gray-900">{customer.totalSpent.toLocaleString("sv-SE")} SEK</p>
                                             <p className="text-xs text-gray-500">{customer.orders.length} {customer.orders.length === 1 ? "order" : "ordrar"}</p>
                                         </div>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setEditingCustomer(customer); }}
-                                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                            className="p-1.5 md:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                             title="Redigera kund"
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
                                         </button>
-                                        <svg className={`w-5 h-5 text-gray-400 transition-transform ${expandedCustomer === customer.name ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className={`w-4 h-4 md:w-5 md:h-5 text-gray-400 transition-transform ${expandedCustomer === customer.name ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </div>
                                 </div>
 
                                 {expandedCustomer === customer.name && (
-                                    <div className="ml-14 mb-4 bg-gray-50 rounded-lg p-4">
-                                        <table className="w-full text-sm">
+                                    <div className="ml-0 md:ml-14 mb-4 bg-gray-50 rounded-lg p-4 overflow-x-auto">
+                                        <table className="w-full text-sm min-w-[400px]">
                                             <thead>
                                                 <tr className="text-left text-gray-500 border-b border-gray-200">
                                                     <th className="pb-2 font-medium">Datum</th>

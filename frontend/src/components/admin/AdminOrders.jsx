@@ -450,33 +450,35 @@ export default function AdminOrders({ products, token, searchQuery }) {
                 ) : (
                     <div className="divide-y divide-gray-100">
                         {paginated.map((order) => (
-                            <div key={order.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
-                                <StatusBadge paid={order.payment_status === "betald"} pickedUp={order.pickup_status === "hamtad"} />
-
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-gray-900">
-                                        {order.customer_name}
-                                        {order.payment_method && (
-                                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                                {formatPaymentMethod(order.payment_method)}
-                                            </span>
+                            <div key={order.id} className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 py-4 first:pt-0 last:pb-0">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <StatusBadge paid={order.payment_status === "betald"} pickedUp={order.pickup_status === "hamtad"} />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-900">
+                                            {order.customer_name}
+                                            {order.payment_method && (
+                                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                    {formatPaymentMethod(order.payment_method)}
+                                                </span>
+                                            )}
+                                            <span className="ml-2 text-sm text-gray-400 md:hidden">{formatDate(order.created_at)}</span>
+                                        </p>
+                                        <p className="text-sm text-gray-500 truncate">
+                                            {formatItemsSummary(order.items)}
+                                        </p>
+                                        {order.notes && (
+                                            <p className="text-sm text-gray-400 italic truncate">"{order.notes}"</p>
                                         )}
-                                    </p>
-                                    <p className="text-sm text-gray-500 truncate">
-                                        {formatItemsSummary(order.items)}
-                                    </p>
-                                    {order.notes && (
-                                        <p className="text-sm text-gray-400 italic truncate">"{order.notes}"</p>
-                                    )}
+                                    </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 flex-shrink-0">
-                                    <span className="text-sm text-gray-400">{formatDate(order.created_at)}</span>
+                                <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 ml-11 md:ml-0">
+                                    <span className="text-sm text-gray-400 hidden md:inline">{formatDate(order.created_at)}</span>
 
                                     <select
                                         value={order.payment_status}
                                         onChange={(e) => updateStatus(order.id, "payment_status", e.target.value)}
-                                        className={`border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                        className={`border rounded-lg px-2 md:px-3 py-1.5 md:py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                                             order.payment_status === "betald" ? "bg-green-50 border-green-300 text-green-800" : "bg-white border-gray-200"
                                         }`}
                                     >
@@ -488,7 +490,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                     <select
                                         value={order.pickup_status}
                                         onChange={(e) => updateStatus(order.id, "pickup_status", e.target.value)}
-                                        className={`border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                        className={`border rounded-lg px-2 md:px-3 py-1.5 md:py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                                             order.pickup_status === "hamtad" ? "bg-green-50 border-green-300 text-green-800" : "bg-white border-gray-200"
                                         }`}
                                     >
