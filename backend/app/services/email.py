@@ -1,12 +1,15 @@
 """
 Email notification service.
 """
+import json
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Dict, Any
 
 from ..config import settings
+from ..database import get_db
+from .inventory import normalize_sizes
 
 
 class EmailService:
@@ -49,11 +52,37 @@ class EmailService:
         body += f"Betalning: {payment_display}\n\n"
         body += "Produkter:\n"
         
+        # Look up existing sizes for each product
+        product_sizes = {}
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            for item in items:
+                product_id = item.get('id')
+                if product_id and product_id not in product_sizes:
+                    cursor.execute("SELECT sizes FROM products WHERE id = ?", (product_id,))
+                    row = cursor.fetchone()
+                    if row and row["sizes"]:
+                        product_sizes[product_id] = normalize_sizes(json.loads(row["sizes"]))
+                    else:
+                        product_sizes[product_id] = {}
+            conn.close()
+        except Exception:
+            product_sizes = {}
+
         for item in items:
             color = item.get('color', '')
             color_str = f" ({color})" if color else ""
-            body += f"- {item.get('name')}{color_str} ({item.get('selectedSize')}) x{item.get('quantity')} – {item.get('price')} kr\n"
-        
+            size = item.get('selectedSize')
+            line = f"- {item.get('name')}{color_str} ({size}) x{item.get('quantity')} – {item.get('price')} kr"
+
+            # Check if ordered size exists in product stock
+            existing = product_sizes.get(item.get('id'), {})
+            if existing and str(size) not in existing:
+                line += "  ⚠️ Storlek finns ej i lager"
+
+            body += line + "\n"
+
         return body
     
     @classmethod
