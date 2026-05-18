@@ -149,7 +149,7 @@ export default function AdminCustomers({ token, searchQuery }) {
                                                     <tr key={o.id}>
                                                         <td className="py-2 text-gray-600">{formatDate(o.created_at)}</td>
                                                         <td className="py-2 text-gray-900">
-                                                            {(o.items || []).map(i => i.product_name).join(", ") || "—"}
+                                                            {(o.items || []).map(i => i.size ? `${i.product_name} (${i.size})` : i.product_name).join(", ") || "—"}
                                                         </td>
                                                         <td className="py-2">
                                                             <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
