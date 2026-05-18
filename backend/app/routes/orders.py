@@ -1,6 +1,7 @@
 """
 Order management endpoints.
 """
+import json
 from datetime import datetime
 
 import jwt
@@ -8,6 +9,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from ..config import settings
 from ..database import get_db_context
+from ..services.inventory import InventoryService, normalize_sizes
 
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -221,6 +223,9 @@ def delete_order(order_id: int, request: Request, _=Depends(require_admin)):
 @router.post("")
 def create_order_manual(body: dict = Body(...), request: Request = None, _=Depends(require_admin)):
     """Manually create an order from admin panel."""
+    reduce_stock_flag = bool(body.get("reduce_stock", True))
+    stock_warnings = []
+
     with get_db_context() as conn:
         cursor = conn.cursor()
 
@@ -280,4 +285,41 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
                 )
             )
 
-    return {"message": "Order created", "order_id": order_id}
+        if reduce_stock_flag:
+            for item in items:
+                pid = item.get("product_id") or item.get("id")
+                size = str(item.get("size", "")).strip()
+                qty = int(item.get("quantity", 1))
+                if not pid or not size:
+                    continue
+                cursor.execute("SELECT name, sizes FROM products WHERE id = ?", (pid,))
+                row = cursor.fetchone()
+                if not row:
+                    continue
+                sizes_raw = json.loads(row["sizes"]) if row["sizes"] else {}
+                sizes = normalize_sizes(sizes_raw)
+                available = 0
+                if size in sizes:
+                    available = sizes[size].get("online", 0) + sizes[size].get("club", 0)
+                if available < qty:
+                    stock_warnings.append({
+                        "product_name": row["name"],
+                        "size": size,
+                        "requested": qty,
+                        "available": available,
+                    })
+
+    if reduce_stock_flag:
+        stock_items = [
+            {
+                "id": item.get("product_id") or item.get("id"),
+                "selectedSize": item.get("size", ""),
+                "quantity": item.get("quantity", 1),
+            }
+            for item in items
+            if (item.get("product_id") or item.get("id")) and item.get("size")
+        ]
+        if stock_items:
+            InventoryService.reduce_stock(stock_items)
+
+    return {"message": "Order created", "order_id": order_id, "stock_warnings": stock_warnings}

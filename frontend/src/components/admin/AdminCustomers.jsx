@@ -9,6 +9,7 @@ export default function AdminCustomers({ token, searchQuery }) {
     const [loading, setLoading] = useState(true);
     const [expandedCustomer, setExpandedCustomer] = useState(null);
     const [editingCustomer, setEditingCustomer] = useState(null);
+    const [mergingCustomer, setMergingCustomer] = useState(null);
 
     useEffect(() => {
         axios.get(`${API_URL}/orders`, { headers: { Authorization: `Bearer ${token}` } })
@@ -117,6 +118,15 @@ export default function AdminCustomers({ token, searchQuery }) {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
                                         </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setMergingCustomer(customer); }}
+                                            className="p-1.5 md:p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                            title="Slå ihop kund"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7l4-4m0 0l4 4m-4-4v18M4 17l4 4m0 0l4-4m-4 4V3" />
+                                            </svg>
+                                        </button>
                                         <svg className={`w-4 h-4 md:w-5 md:h-5 text-gray-400 transition-transform ${expandedCustomer === customer.name ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
@@ -167,6 +177,21 @@ export default function AdminCustomers({ token, searchQuery }) {
                 onClose={() => setEditingCustomer(null)}
                 onSaved={() => {
                     setEditingCustomer(null);
+                    setLoading(true);
+                    axios.get(`${API_URL}/orders`, { headers: { Authorization: `Bearer ${token}` } })
+                        .then(res => setOrders(res.data))
+                        .catch(() => {})
+                        .finally(() => setLoading(false));
+                }}
+            />}
+
+            {mergingCustomer && <MergeCustomerModal
+                source={mergingCustomer}
+                others={customerList.filter(c => c.name.toLowerCase() !== mergingCustomer.name.toLowerCase())}
+                token={token}
+                onClose={() => setMergingCustomer(null)}
+                onSaved={() => {
+                    setMergingCustomer(null);
                     setLoading(true);
                     axios.get(`${API_URL}/orders`, { headers: { Authorization: `Bearer ${token}` } })
                         .then(res => setOrders(res.data))
@@ -243,6 +268,115 @@ function EditCustomerModal({ customer, token, onClose, onSaved }) {
                         className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
                         {saving ? "Sparar..." : "Spara"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function MergeCustomerModal({ source, others, token, onClose, onSaved }) {
+    const [search, setSearch] = useState("");
+    const [target, setTarget] = useState(null);
+    const [saving, setSaving] = useState(false);
+
+    const matches = others.filter(c => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q);
+    });
+
+    const handleMerge = async () => {
+        if (!target) return;
+        setSaving(true);
+        try {
+            await axios.put(`${API_URL}/orders/customer/update`, {
+                old_name: source.name,
+                customer_name: target.name,
+                customer_email: target.email || source.email,
+                customer_phone: target.phone || source.phone,
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            toast.success(`Slog ihop ${source.name} med ${target.name}`);
+            onSaved();
+        } catch {
+            toast.error("Kunde inte slå ihop kunder");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
+                <h2 className="text-xl font-bold mb-1">Slå ihop kund</h2>
+                <p className="text-sm text-gray-500 mb-4">
+                    Flytta alla {source.orders.length} {source.orders.length === 1 ? "order" : "ordrar"} från denna kund till en annan kund.
+                </p>
+
+                <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                    <p className="text-xs text-gray-500 mb-1">Från</p>
+                    <p className="font-medium text-gray-900">{source.name}</p>
+                    {(source.email || source.phone) && (
+                        <p className="text-xs text-gray-500">{[source.email, source.phone].filter(Boolean).join(" · ")}</p>
+                    )}
+                </div>
+
+                {target ? (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                        <div className="flex items-center justify-between mb-1">
+                            <p className="text-xs text-purple-700">Till</p>
+                            <button onClick={() => setTarget(null)} className="text-xs text-purple-700 hover:underline">Ändra</button>
+                        </div>
+                        <p className="font-medium text-gray-900">{target.name}</p>
+                        {(target.email || target.phone) && (
+                            <p className="text-xs text-gray-500">{[target.email, target.phone].filter(Boolean).join(" · ")}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">
+                            Behåller {target.name}s kontaktuppgifter
+                            {(!target.email && source.email) || (!target.phone && source.phone) ? ` (fyller i saknad ${[!target.email && source.email && "e-post", !target.phone && source.phone && "telefon"].filter(Boolean).join(" och ")})` : ""}.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        <input
+                            autoFocus
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Sök kund att slå ihop med..."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="border border-gray-100 rounded-lg max-h-64 overflow-y-auto divide-y divide-gray-100">
+                            {matches.length === 0 ? (
+                                <p className="text-sm text-gray-400 py-6 text-center">Inga andra kunder</p>
+                            ) : matches.map(c => (
+                                <button
+                                    key={c.name}
+                                    onClick={() => setTarget(c)}
+                                    className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center justify-between gap-2"
+                                >
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-gray-900 truncate">{c.name}</p>
+                                        <p className="text-xs text-gray-500 truncate">
+                                            {[c.email, c.phone].filter(Boolean).join(" · ") || "Ingen kontaktinfo"}
+                                        </p>
+                                    </div>
+                                    <span className="text-xs text-gray-400 flex-shrink-0">{c.orders.length} {c.orders.length === 1 ? "order" : "ordrar"}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                <div className="flex justify-end gap-3 mt-5">
+                    <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Avbryt
+                    </button>
+                    <button
+                        onClick={handleMerge}
+                        disabled={!target || saving}
+                        className="px-4 py-2 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                        {saving ? "Slår ihop..." : "Slå ihop"}
                     </button>
                 </div>
             </div>

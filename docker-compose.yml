@@ -6,7 +6,7 @@ services:
       context: ./backend
     container_name: yakimoto_backend
     ports:
-      - "8000:8000"
+      - "8002:8000"
     volumes:
       - ./backend/app:/app/app
     restart: always

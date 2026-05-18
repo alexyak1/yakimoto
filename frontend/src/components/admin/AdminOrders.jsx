@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 
@@ -51,8 +51,20 @@ function StatusBadge({ paid, pickedUp }) {
     );
 }
 
-function OrderModal({ products, onClose, onSave, order }) {
+function OrderModal({ products, customers, onClose, onSave, order }) {
     const isEdit = !!order;
+    const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+    const customerInputWrapRef = useRef(null);
+
+    useEffect(() => {
+        const onDocClick = (e) => {
+            if (customerInputWrapRef.current && !customerInputWrapRef.current.contains(e.target)) {
+                setShowCustomerSuggestions(false);
+            }
+        };
+        document.addEventListener("mousedown", onDocClick);
+        return () => document.removeEventListener("mousedown", onDocClick);
+    }, []);
     const [form, setForm] = useState({
         customer_name: order?.customer_name || "",
         customer_email: order?.customer_email || "",
@@ -62,6 +74,7 @@ function OrderModal({ products, onClose, onSave, order }) {
         payment_status: order?.payment_status || "ej_betald",
         pickup_status: order?.pickup_status || "ej_hamtad",
         created_at: order?.created_at ? order.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        reduce_stock: true,
     });
     const [items, setItems] = useState(
         order?.items?.length
@@ -105,7 +118,11 @@ function OrderModal({ products, onClose, onSave, order }) {
         }
         setSaving(true);
         try {
-            await onSave({ ...form, items: items.filter(i => i.product_name?.trim()) });
+            const { reduce_stock, ...rest } = form;
+            const payload = isEdit
+                ? { ...rest, items: items.filter(i => i.product_name?.trim()) }
+                : { ...rest, reduce_stock, items: items.filter(i => i.product_name?.trim()) };
+            await onSave(payload);
             onClose();
         } catch {
             toast.error(isEdit ? "Kunde inte uppdatera order" : "Kunde inte skapa order");
@@ -120,14 +137,60 @@ function OrderModal({ products, onClose, onSave, order }) {
                 <h2 className="text-xl font-bold mb-4">{isEdit ? "Redigera order" : "Ny order"}</h2>
 
                 <div className="space-y-3">
-                    <div>
+                    <div ref={customerInputWrapRef} className="relative">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Kund *</label>
                         <input
                             value={form.customer_name}
-                            onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
+                            onChange={(e) => {
+                                setForm({ ...form, customer_name: e.target.value });
+                                setShowCustomerSuggestions(true);
+                            }}
+                            onFocus={() => setShowCustomerSuggestions(true)}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Namn"
+                            placeholder="Namn (välj befintlig eller skriv ny)"
+                            autoComplete="off"
                         />
+                        {showCustomerSuggestions && !isEdit && (() => {
+                            const q = form.customer_name.trim().toLowerCase();
+                            const matches = (customers || [])
+                                .filter(c => !q || c.name.toLowerCase().includes(q))
+                                .slice(0, 8);
+                            const exact = q && (customers || []).some(c => c.name.toLowerCase() === q);
+                            if (!matches.length) return null;
+                            return (
+                                <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                    {matches.map((c) => (
+                                        <button
+                                            type="button"
+                                            key={c.name}
+                                            onClick={() => {
+                                                setForm({
+                                                    ...form,
+                                                    customer_name: c.name,
+                                                    customer_email: c.email || form.customer_email,
+                                                    customer_phone: c.phone || form.customer_phone,
+                                                });
+                                                setShowCustomerSuggestions(false);
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2"
+                                        >
+                                            <span className="truncate">
+                                                <span className="font-medium text-gray-900">{c.name}</span>
+                                                {(c.email || c.phone) && (
+                                                    <span className="text-gray-500 ml-2">{[c.email, c.phone].filter(Boolean).join(" · ")}</span>
+                                                )}
+                                            </span>
+                                            <span className="text-xs text-gray-400 flex-shrink-0">{c.orderCount} {c.orderCount === 1 ? "order" : "ordrar"}</span>
+                                        </button>
+                                    ))}
+                                    {q && !exact && (
+                                        <div className="px-3 py-2 text-xs text-gray-400 border-t border-gray-100">
+                                            Tryck Enter för att skapa ny kund "{form.customer_name}"
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -213,6 +276,18 @@ function OrderModal({ products, onClose, onSave, order }) {
                             />
                         </div>
                     </div>
+
+                    {!isEdit && (
+                        <label className="flex items-center gap-2 text-sm text-gray-700 select-none cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={form.reduce_stock}
+                                onChange={(e) => setForm({ ...form, reduce_stock: e.target.checked })}
+                                className="w-4 h-4"
+                            />
+                            Minska lager automatiskt
+                        </label>
+                    )}
 
                     {/* Items */}
                     <div>
@@ -327,10 +402,17 @@ export default function AdminOrders({ products, token, searchQuery }) {
     };
 
     const createOrder = async (orderData) => {
-        await axios.post(`${API_URL}/orders`, orderData, {
+        const res = await axios.post(`${API_URL}/orders`, orderData, {
             headers: { Authorization: `Bearer ${token}` },
         });
         toast.success("Order skapad");
+        const warnings = res.data?.stock_warnings || [];
+        if (warnings.length) {
+            const msg = warnings
+                .map(w => `${w.product_name} (${w.size}): ${w.available} i lager, ${w.requested} beställt`)
+                .join("\n");
+            toast(`⚠️ Lager räcker inte:\n${msg}`, { duration: 6000, icon: "⚠️" });
+        }
         fetchOrders();
     };
 
@@ -341,6 +423,23 @@ export default function AdminOrders({ products, token, searchQuery }) {
         toast.success("Order uppdaterad");
         fetchOrders();
     };
+
+    // Derive unique customers from orders (latest contact info wins)
+    const customers = (() => {
+        const byKey = {};
+        orders.forEach((o) => {
+            const rawName = (o.customer_name || "").trim();
+            if (!rawName) return;
+            const key = rawName.toLowerCase();
+            if (!byKey[key]) {
+                byKey[key] = { name: rawName, email: "", phone: "", orderCount: 0 };
+            }
+            byKey[key].orderCount += 1;
+            if (o.customer_email) byKey[key].email = o.customer_email;
+            if (o.customer_phone) byKey[key].phone = o.customer_phone;
+        });
+        return Object.values(byKey).sort((a, b) => b.orderCount - a.orderCount);
+    })();
 
     // Filter orders
     const filtered = orders.filter((o) => {
@@ -654,6 +753,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
             {showModal && (
                 <OrderModal
                     products={products}
+                    customers={customers}
                     order={editingOrder}
                     onClose={() => { setShowModal(false); setEditingOrder(null); }}
                     onSave={editingOrder ? updateOrder : createOrder}
