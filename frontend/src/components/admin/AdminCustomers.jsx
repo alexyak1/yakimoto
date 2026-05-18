@@ -134,8 +134,28 @@ export default function AdminCustomers({ token, searchQuery }) {
                                 </div>
 
                                 {expandedCustomer === customer.name && (
-                                    <div className="ml-0 md:ml-14 mb-4 bg-gray-50 rounded-lg p-4 overflow-x-auto">
-                                        <table className="w-full text-sm min-w-[400px]">
+                                    <div className="ml-0 md:ml-14 mb-4 bg-gray-50 rounded-lg p-4">
+                                        {/* Mobile: stacked cards */}
+                                        <div className="md:hidden space-y-2">
+                                            {customer.orders.map(o => (
+                                                <div key={o.id} className="bg-white rounded-lg p-3 text-sm">
+                                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                                        <span className="text-gray-600 text-xs">{formatDate(o.created_at)}</span>
+                                                        <span className="text-gray-900 font-medium">{(o.total || 0).toLocaleString("sv-SE")} kr</span>
+                                                    </div>
+                                                    <p className="text-gray-900 mb-2">
+                                                        {(o.items || []).map(i => i.size ? `${i.product_name} (${i.size})` : i.product_name).join(", ") || "—"}
+                                                    </p>
+                                                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                                                        o.payment_status === "betald" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                                                    }`}>
+                                                        {o.payment_status === "betald" ? "Betald" : "Ej betald"}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {/* Desktop: table */}
+                                        <table className="hidden md:table w-full text-sm">
                                             <thead>
                                                 <tr className="text-left text-gray-500 border-b border-gray-200">
                                                     <th className="pb-2 font-medium">Datum</th>
