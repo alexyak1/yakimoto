@@ -201,6 +201,7 @@ def _run_migrations(conn):
         ("orders", "pickup_status", "TEXT DEFAULT 'ej_hamtad'"),
         ("products", "cost", "INTEGER"),
         ("order_items", "cost", "INTEGER"),
+        ("order_items", "location", "TEXT"),
     ]
     
     for table, column, col_type in migrations:

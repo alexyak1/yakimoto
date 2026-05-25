@@ -139,50 +139,55 @@ class InventoryService:
     def reduce_stock(items: List[Dict[str, Any]]) -> None:
         """
         Reduce stock levels after an order.
-        
-        Deducts from online stock first, then club stock if needed.
-        
+
+        If an item specifies selectedLocation ('online' or 'club'), deducts
+        from that location only. Otherwise deducts from online first, then
+        club as fallback.
+
         Args:
-            items: List of order items with id, selectedSize, quantity
+            items: List of order items with id, selectedSize, quantity,
+                   and optionally selectedLocation
         """
         conn = get_db()
         cursor = conn.cursor()
-        
+
         for item in items:
             product_id = item["id"]
             size = str(item["selectedSize"])
             quantity = int(item["quantity"])
-            
+            location = item.get("selectedLocation")
+
             cursor.execute("SELECT sizes FROM products WHERE id = ?", (product_id,))
             row = cursor.fetchone()
             if not row:
                 continue
-            
+
             sizes = json.loads(row["sizes"])
             sizes = normalize_sizes(sizes)
-            
+
             if size in sizes:
-                remaining = quantity
                 online_qty = sizes[size].get("online", 0)
                 club_qty = sizes[size].get("club", 0)
-                
-                # Reduce from online first
-                if online_qty >= remaining:
-                    sizes[size]["online"] = online_qty - remaining
-                    remaining = 0
+
+                if location in ("online", "club"):
+                    current = sizes[size].get(location, 0)
+                    sizes[size][location] = max(0, current - quantity)
                 else:
-                    sizes[size]["online"] = 0
-                    remaining -= online_qty
-                
-                # Then reduce from club if needed
-                if remaining > 0:
-                    sizes[size]["club"] = max(0, club_qty - remaining)
-            
+                    remaining = quantity
+                    if online_qty >= remaining:
+                        sizes[size]["online"] = online_qty - remaining
+                        remaining = 0
+                    else:
+                        sizes[size]["online"] = 0
+                        remaining -= online_qty
+                    if remaining > 0:
+                        sizes[size]["club"] = max(0, club_qty - remaining)
+
             updated_sizes = json.dumps(sizes)
             cursor.execute(
                 "UPDATE products SET sizes = ? WHERE id = ?",
                 (updated_sizes, product_id)
             )
-        
+
         conn.commit()
         conn.close()

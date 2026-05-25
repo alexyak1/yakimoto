@@ -78,12 +78,12 @@ function OrderModal({ products, customers, onClose, onSave, order }) {
     });
     const [items, setItems] = useState(
         order?.items?.length
-            ? order.items.map(i => ({ ...i, product_id: i.product_id || "", size: i.size || "", color: i.color || "", quantity: i.quantity || 1, price: i.price || 0 }))
-            : [{ product_name: "", size: "", color: "", quantity: 1, price: 0 }]
+            ? order.items.map(i => ({ ...i, product_id: i.product_id || "", size: i.size || "", color: i.color || "", quantity: i.quantity || 1, price: i.price || 0, location: i.location || "online" }))
+            : [{ product_name: "", size: "", color: "", quantity: 1, price: 0, location: "online" }]
     );
     const [saving, setSaving] = useState(false);
 
-    const addItem = () => setItems([...items, { product_name: "", size: "", color: "", quantity: 1, price: 0 }]);
+    const addItem = () => setItems([...items, { product_name: "", size: "", color: "", quantity: 1, price: 0, location: "online" }]);
     const removeItem = (i) => setItems(items.filter((_, idx) => idx !== i));
     const updateItem = (i, field, value) => {
         const updated = [...items];
@@ -292,41 +292,95 @@ function OrderModal({ products, customers, onClose, onSave, order }) {
                     {/* Items */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Produkter</label>
-                        {items.map((item, i) => (
-                            <div key={i} className="flex items-center gap-2 mb-2">
-                                <select
-                                    value={item.product_id || ""}
-                                    onChange={(e) => selectProduct(i, e.target.value)}
-                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Välj produkt...</option>
-                                    {products.map((p) => (
-                                        <option key={p.id} value={p.id}>{p.name} — {p.sale_price || p.price} kr</option>
-                                    ))}
-                                </select>
-                                <input
-                                    type="text"
-                                    placeholder="Storlek"
-                                    value={item.size}
-                                    onChange={(e) => updateItem(i, "size", e.target.value)}
-                                    className="w-20 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={item.quantity}
-                                    onChange={(e) => updateItem(i, "quantity", e.target.value)}
-                                    className="w-14 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                {items.length > 1 && (
-                                    <button onClick={() => removeItem(i)} className="text-red-500 hover:text-red-700 p-1">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                )}
-                            </div>
-                        ))}
+                        {items.map((item, i) => {
+                            const selectedProduct = products.find(p => p.id === Number(item.product_id));
+                            const sizeEntries = selectedProduct?.sizes
+                                ? Object.entries(selectedProduct.sizes)
+                                : [];
+                            const locationQty = (size, loc) => {
+                                const v = selectedProduct?.sizes?.[size];
+                                if (!v) return 0;
+                                if (typeof v === "object") return Number(v[loc] || 0);
+                                return loc === "online" ? Number(v || 0) : 0;
+                            };
+                            const availableHere = item.size ? locationQty(item.size, item.location) : null;
+                            return (
+                                <div key={i} className="border border-gray-200 rounded-lg p-3 mb-2 bg-gray-50">
+                                    <div className="flex items-start gap-2">
+                                        <select
+                                            value={item.product_id || ""}
+                                            onChange={(e) => selectProduct(i, e.target.value)}
+                                            className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                        >
+                                            <option value="">Välj produkt...</option>
+                                            {products.map((p) => (
+                                                <option key={p.id} value={p.id}>{p.name} — {p.sale_price || p.price} kr</option>
+                                            ))}
+                                        </select>
+                                        {items.length > 1 && (
+                                            <button onClick={() => removeItem(i)} className="text-red-500 hover:text-red-700 p-2 flex-shrink-0" aria-label="Ta bort">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 mt-2">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1">Storlek</label>
+                                            {sizeEntries.length > 0 ? (
+                                                <select
+                                                    value={item.size}
+                                                    onChange={(e) => updateItem(i, "size", e.target.value)}
+                                                    className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                                >
+                                                    <option value="">Välj...</option>
+                                                    {sizeEntries.map(([sz, v]) => {
+                                                        const online = typeof v === "object" ? Number(v.online || 0) : Number(v || 0);
+                                                        const club = typeof v === "object" ? Number(v.club || 0) : 0;
+                                                        return <option key={sz} value={sz}>{sz} (o:{online} k:{club})</option>;
+                                                    })}
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    placeholder="Storlek"
+                                                    value={item.size}
+                                                    onChange={(e) => updateItem(i, "size", e.target.value)}
+                                                    className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                                />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1">Antal</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={item.quantity}
+                                                onChange={(e) => updateItem(i, "quantity", e.target.value)}
+                                                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1">Plats</label>
+                                            <select
+                                                value={item.location || "online"}
+                                                onChange={(e) => updateItem(i, "location", e.target.value)}
+                                                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                            >
+                                                <option value="online">Online</option>
+                                                <option value="club">Klubb</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    {availableHere !== null && (
+                                        <p className={`text-xs mt-2 ${availableHere < item.quantity ? "text-red-600" : "text-gray-500"}`}>
+                                            {availableHere} i lager på {item.location === "club" ? "klubb" : "online"}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })}
                         <button onClick={addItem} className="text-blue-600 text-sm hover:underline mt-1">
                             + Lägg till produkt
                         </button>

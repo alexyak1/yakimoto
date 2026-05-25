@@ -188,8 +188,8 @@ def update_order(order_id: int, body: dict = Body(...), request: Request = None,
                     if row:
                         item_cost = row["cost"]
             cursor.execute(
-                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price, cost)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price, cost, location)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     order_id,
                     item.get("product_id") or item.get("id"),
@@ -199,6 +199,7 @@ def update_order(order_id: int, body: dict = Body(...), request: Request = None,
                     item.get("quantity", 1),
                     item.get("price", 0),
                     item_cost,
+                    item.get("location") or "online",
                 )
             )
 
@@ -271,8 +272,8 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
                     if row:
                         item_cost = row["cost"]
             cursor.execute(
-                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price, cost)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO order_items (order_id, product_id, product_name, size, color, quantity, price, cost, location)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     order_id,
                     item.get("product_id") or item.get("id"),
@@ -282,6 +283,7 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
                     item.get("quantity", 1),
                     item.get("price", 0),
                     item_cost,
+                    item.get("location") or "online",
                 )
             )
 
@@ -290,6 +292,7 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
                 pid = item.get("product_id") or item.get("id")
                 size = str(item.get("size", "")).strip()
                 qty = int(item.get("quantity", 1))
+                location = item.get("location") or "online"
                 if not pid or not size:
                     continue
                 cursor.execute("SELECT name, sizes FROM products WHERE id = ?", (pid,))
@@ -300,11 +303,15 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
                 sizes = normalize_sizes(sizes_raw)
                 available = 0
                 if size in sizes:
-                    available = sizes[size].get("online", 0) + sizes[size].get("club", 0)
+                    if location in ("online", "club"):
+                        available = sizes[size].get(location, 0)
+                    else:
+                        available = sizes[size].get("online", 0) + sizes[size].get("club", 0)
                 if available < qty:
                     stock_warnings.append({
                         "product_name": row["name"],
                         "size": size,
+                        "location": location,
                         "requested": qty,
                         "available": available,
                     })
@@ -314,6 +321,7 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
             {
                 "id": item.get("product_id") or item.get("id"),
                 "selectedSize": item.get("size", ""),
+                "selectedLocation": item.get("location") or "online",
                 "quantity": item.get("quantity", 1),
             }
             for item in items
