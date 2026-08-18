@@ -157,6 +157,33 @@ function ProductForm({ form, setForm, categories, sizes, setSizes, imageFiles, s
     );
 }
 
+function StockStepper({ label, value, onChange, busy }) {
+    return (
+        <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400 w-11 flex-shrink-0">{label}</span>
+            <button
+                type="button"
+                onClick={() => onChange(Math.max(0, value - 1))}
+                disabled={busy || value <= 0}
+                className="w-8 h-8 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none"
+                aria-label={`Minska ${label}`}
+            >
+                −
+            </button>
+            <span className="w-8 text-center text-sm font-semibold text-gray-900 tabular-nums">{value}</span>
+            <button
+                type="button"
+                onClick={() => onChange(value + 1)}
+                disabled={busy}
+                className="w-8 h-8 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-lg leading-none"
+                aria-label={`Öka ${label}`}
+            >
+                +
+            </button>
+        </div>
+    );
+}
+
 export default function AdminProducts({ products, categories, token, fetchProducts, searchQuery }) {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editProductId, setEditProductId] = useState(null);
@@ -166,6 +193,8 @@ export default function AdminProducts({ products, categories, token, fetchProduc
     const [isUploading, setIsUploading] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const [moveInventory, setMoveInventory] = useState(null);
+    const [expandedProduct, setExpandedProduct] = useState(null);
+    const [adjustingKey, setAdjustingKey] = useState(null);
 
     // Create form state
     const [createForm, setCreateForm] = useState({
@@ -360,6 +389,23 @@ export default function AdminProducts({ products, categories, token, fetchProduc
         }
     };
 
+    const adjustStock = async (productId, size, location, quantity) => {
+        const key = `${productId}-${size}-${location}`;
+        setAdjustingKey(key);
+        try {
+            const formData = new FormData();
+            formData.append("size", size);
+            formData.append("location", location);
+            formData.append("quantity", Math.max(0, quantity));
+            await axios.post(`${API_URL}/products/${productId}/adjust-stock`, formData, { headers: { Authorization: `Bearer ${token}` } });
+            await fetchProducts();
+        } catch (error) {
+            alert(error.response?.data?.detail || "Kunde inte uppdatera lager");
+        } finally {
+            setAdjustingKey(null);
+        }
+    };
+
     const getProductStock = (product) => {
         return Object.values(product.sizes || {}).reduce((s, v) => {
             if (typeof v === "object" && v !== null) return s + (v.online || 0) + (v.club || 0);
@@ -385,8 +431,11 @@ export default function AdminProducts({ products, categories, token, fetchProduc
             {/* Product List */}
             <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-100">
                 {filtered.map((product) => (
-                    <div key={product.id} className="p-4">
-                        <div className="flex items-center gap-4">
+                    <div key={product.id}>
+                        <div
+                            onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
+                            className="flex items-center gap-3 md:gap-4 p-4 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors select-none"
+                        >
                             <div className="w-14 h-14 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
                                 {product.main_image || (product.images && product.images[0]) ? (
                                     <SmartImage src={product.main_image || product.images[0]} alt={product.name} className="w-full h-full object-cover" />
@@ -400,39 +449,74 @@ export default function AdminProducts({ products, categories, token, fetchProduc
                                     {!!product.is_new && <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{NEW_PRODUCT_LABEL}</span>}
                                     {product.sale_price && <span className="bg-red-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{SALE_LABEL}</span>}
                                 </div>
-                                <p className="text-sm text-gray-500">{product.price} SEK</p>
-                                {/* Stock details */}
+                                <p className="text-sm text-gray-500">{product.price} SEK · {getProductStock(product)} i lager</p>
+                                {/* Stock summary preview */}
                                 <div className="text-xs text-gray-400 mt-1 flex flex-wrap gap-x-3">
                                     {Object.entries(product.sizes || {}).map(([size, value]) => {
-                                        if (typeof value === "object" && ("online" in value || "club" in value)) {
-                                            const total = (value.online || 0) + (value.club || 0);
-                                            if (total === 0) return null;
-                                            return (
-                                                <span key={size} className="flex items-center gap-1">
-                                                    {size}: {total}st
-                                                    {(value.online || 0) > 0 && (
-                                                        <button onClick={() => setMoveInventory({ productId: product.id, productName: product.name, size, fromLocation: "online", toLocation: "club", maxQty: value.online })} className="text-green-600 hover:underline">({value.online}h)</button>
-                                                    )}
-                                                    {(value.club || 0) > 0 && (
-                                                        <button onClick={() => setMoveInventory({ productId: product.id, productName: product.name, size, fromLocation: "club", toLocation: "online", maxQty: value.club })} className="text-blue-600 hover:underline">({value.club}k)</button>
-                                                    )}
-                                                </span>
-                                            );
-                                        }
-                                        return <span key={size}>{size}: {typeof value === "object" ? value.quantity : value}st</span>;
+                                        const total = typeof value === "object" && value !== null
+                                            ? (value.online || 0) + (value.club || 0)
+                                            : (value || 0);
+                                        if (!total) return null;
+                                        return <span key={size}>{size}: {total}st</span>;
                                     })}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 flex-shrink-0">
-                                <span className="text-sm text-gray-500">{getProductStock(product)} i lager</span>
-                                <button onClick={() => startEdit(product)} className="text-blue-600 hover:text-blue-800 p-1.5 rounded-lg hover:bg-blue-50 transition-colors">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                                <button onClick={(e) => { e.stopPropagation(); startEdit(product); }} className="text-blue-600 hover:text-blue-800 p-2.5 rounded-lg hover:bg-blue-50 transition-colors" title="Redigera">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 </button>
-                                <button onClick={() => deleteProduct(product.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                <button onClick={(e) => { e.stopPropagation(); deleteProduct(product.id); }} className="text-red-500 hover:text-red-700 p-2.5 rounded-lg hover:bg-red-50 transition-colors" title="Ta bort">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 </button>
+                                <svg className={`w-5 h-5 text-gray-300 flex-shrink-0 transition-transform ${expandedProduct === product.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                             </div>
                         </div>
+
+                        {expandedProduct === product.id && (
+                            <div className="mx-4 mb-4 bg-gray-50 rounded-lg p-3">
+                                <p className="text-xs font-medium text-gray-500 mb-2 px-1">Storlekar &amp; lager</p>
+                                {Object.keys(product.sizes || {}).length === 0 ? (
+                                    <p className="text-sm text-gray-400 px-1">Inga storlekar registrerade</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {Object.entries(product.sizes || {}).map(([size, value]) => {
+                                            const online = typeof value === "object" && value !== null ? (value.online || 0) : (value || 0);
+                                            const club = typeof value === "object" && value !== null ? (value.club || 0) : 0;
+                                            const total = online + club;
+                                            return (
+                                                <div key={size} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 bg-white rounded-lg px-3 py-2">
+                                                    <span className="font-semibold text-gray-900 w-14 flex-shrink-0">{size}</span>
+                                                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                                                        <StockStepper
+                                                            label="Online"
+                                                            value={online}
+                                                            busy={adjustingKey === `${product.id}-${size}-online`}
+                                                            onChange={(v) => adjustStock(product.id, size, "online", v)}
+                                                        />
+                                                        <StockStepper
+                                                            label="Klubb"
+                                                            value={club}
+                                                            busy={adjustingKey === `${product.id}-${size}-club`}
+                                                            onChange={(v) => adjustStock(product.id, size, "club", v)}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-3 sm:ml-auto flex-shrink-0">
+                                                        {online > 0 && (
+                                                            <button onClick={() => setMoveInventory({ productId: product.id, productName: product.name, size, fromLocation: "online", toLocation: "club", maxQty: online })} className="text-xs text-gray-500 hover:text-gray-800 underline">→ klubb</button>
+                                                        )}
+                                                        {club > 0 && (
+                                                            <button onClick={() => setMoveInventory({ productId: product.id, productName: product.name, size, fromLocation: "club", toLocation: "online", maxQty: club })} className="text-xs text-gray-500 hover:text-gray-800 underline">→ online</button>
+                                                        )}
+                                                        <span className="text-sm text-gray-500 whitespace-nowrap">{total} st</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                <p className="text-xs text-gray-400 mt-2 px-1">Justera antalet direkt. Lägg till nya storlekar via Redigera.</p>
+                            </div>
+                        )}
                     </div>
                 ))}
                 {filtered.length === 0 && (

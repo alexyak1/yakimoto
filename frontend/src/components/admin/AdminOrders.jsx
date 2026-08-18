@@ -476,6 +476,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
     const [filter, setFilter] = useState("alla");
     const [showModal, setShowModal] = useState(false);
     const [editingOrder, setEditingOrder] = useState(null);
+    const [expandedOrder, setExpandedOrder] = useState(null);
     const [page, setPage] = useState(0);
     const PAGE_SIZE = 10;
 
@@ -669,8 +670,14 @@ export default function AdminOrders({ products, token, searchQuery }) {
                 ) : (
                     <div className="divide-y divide-gray-100">
                         {paginated.map((order) => (
-                            <div key={order.id} className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 py-4 first:pt-0 last:pb-0">
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div key={order.id} className="py-4 first:pt-0 last:pb-0">
+                              <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+                                <div
+                                    onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                                    role="button"
+                                    title="Visa orderdetaljer"
+                                    className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer rounded-lg hover:bg-gray-50 transition-colors -mx-1 px-1"
+                                >
                                     <StatusBadge paid={order.payment_status === "betald"} pickupStatus={order.pickup_status} />
                                     <div className="flex-1 min-w-0">
                                         <p className="font-medium text-gray-900">
@@ -699,6 +706,9 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                             </p>
                                         )}
                                     </div>
+                                    <svg className={`w-4 h-4 text-gray-300 flex-shrink-0 transition-transform ${expandedOrder === order.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
                                 </div>
 
                                 <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 ml-11 md:ml-0">
@@ -749,6 +759,80 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                         </svg>
                                     </button>
                                 </div>
+                              </div>
+
+                              {expandedOrder === order.id && (
+                                  <div className="mt-3 ml-0 md:ml-11 bg-gray-50 rounded-lg p-4">
+                                      {/* Items */}
+                                      <div className="space-y-2">
+                                          {(order.items || []).length === 0 ? (
+                                              <p className="text-sm text-gray-400">Inga produkter</p>
+                                          ) : (order.items || []).map((item, idx) => (
+                                              <div key={idx} className="flex items-start justify-between gap-3 text-sm">
+                                                  <div className="min-w-0">
+                                                      <p className="text-gray-900">
+                                                          {item.product_name || "—"}
+                                                          {item.size ? <span className="text-gray-500"> · {item.size}</span> : null}
+                                                          {item.color ? <span className="text-gray-500"> · {item.color}</span> : null}
+                                                      </p>
+                                                      <p className="text-xs text-gray-400">
+                                                          {(item.quantity || 1)} × {(item.price || 0).toLocaleString("sv-SE")} kr
+                                                          {item.location ? ` · ${item.location === "club" ? "Klubb" : "Online"}` : ""}
+                                                      </p>
+                                                  </div>
+                                                  <span className="text-gray-900 font-medium flex-shrink-0">
+                                                      {((item.price || 0) * (item.quantity || 1)).toLocaleString("sv-SE")} kr
+                                                  </span>
+                                              </div>
+                                          ))}
+                                      </div>
+
+                                      {/* Totals */}
+                                      <div className="border-t border-gray-200 mt-3 pt-3 space-y-1">
+                                          {order.delivery_cost > 0 && (
+                                              <>
+                                                  <div className="flex justify-between text-sm text-gray-600">
+                                                      <span>Delsumma</span>
+                                                      <span>{(order.items_total || 0).toLocaleString("sv-SE")} kr</span>
+                                                  </div>
+                                                  <div className="flex justify-between text-sm text-gray-600">
+                                                      <span>Leverans</span>
+                                                      <span>{(order.delivery_cost || 0).toLocaleString("sv-SE")} kr</span>
+                                                  </div>
+                                              </>
+                                          )}
+                                          <div className="flex justify-between text-sm font-semibold text-gray-900">
+                                              <span>Totalt</span>
+                                              <span>{(order.total || 0).toLocaleString("sv-SE")} kr</span>
+                                          </div>
+                                      </div>
+
+                                      {/* Contact + delivery */}
+                                      <div className="border-t border-gray-200 mt-3 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                          {order.customer_email && (
+                                              <p className="text-gray-600"><span className="text-gray-400">E-post:</span> {order.customer_email}</p>
+                                          )}
+                                          {order.customer_phone && (
+                                              <p className="text-gray-600"><span className="text-gray-400">Telefon:</span> {order.customer_phone}</p>
+                                          )}
+                                          <p className="text-gray-600">
+                                              <span className="text-gray-400">Leverans:</span> {order.delivery_method === "postnord" ? "PostNord" : "Hämtas i klubb"}
+                                          </p>
+                                          {order.delivery_method === "postnord" && (order.delivery_address || order.delivery_city) && (
+                                              <p className="text-gray-600">
+                                                  <span className="text-gray-400">Adress:</span> {[order.delivery_address, [order.delivery_postal_code, order.delivery_city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+                                              </p>
+                                          )}
+                                      </div>
+
+                                      <button
+                                          onClick={() => { setEditingOrder(order); setShowModal(true); }}
+                                          className="mt-3 text-sm text-blue-600 hover:underline"
+                                      >
+                                          Redigera order
+                                      </button>
+                                  </div>
+                              )}
                             </div>
                         ))}
                     </div>

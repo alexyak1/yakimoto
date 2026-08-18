@@ -503,6 +503,51 @@ def move_inventory(
     }
 
 
+@router.post("/{product_id}/adjust-stock")
+def adjust_stock(
+    product_id: int,
+    size: str = Form(...),
+    location: str = Form(...),
+    quantity: int = Form(...),
+    auth=Depends(verify_token),
+):
+    """Set the absolute stock quantity for a specific size and location."""
+    if location not in ("online", "club"):
+        raise HTTPException(status_code=400, detail="Invalid location. Must be 'online' or 'club'")
+
+    if quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantity must be zero or positive")
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT sizes FROM products WHERE id = ?", (product_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    try:
+        sizes = json.loads(row["sizes"]) if row["sizes"] else {}
+    except json.JSONDecodeError:
+        sizes = {}
+
+    sizes = normalize_sizes(sizes)
+    if size not in sizes:
+        sizes[size] = {"online": 0, "club": 0}
+    sizes[size][location] = quantity
+
+    cursor.execute(
+        "UPDATE products SET sizes = ? WHERE id = ?",
+        (json.dumps(sizes), product_id)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return {"message": f"Stock for size {size} ({location}) set to {quantity}", "sizes": sizes}
+
+
 @router.delete("/{product_id}/images/{filename}")
 def delete_product_image(
     product_id: int,
