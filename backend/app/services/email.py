@@ -46,11 +46,25 @@ class EmailService:
         """
         payment_display = cls.get_payment_display_name(payment_method)
         
+        delivery_method = customer.get('deliveryMethod', '')
+        delivery_names = {
+            "pickup": "Hämtas i Alingsås Judoklubb",
+            "postnord": "PostNord leverans",
+        }
+
         body = f"Ny beställning från {customer.get('firstName', '')} {customer.get('lastName', '')}\n\n"
         body += f"E-post: {customer.get('email', '')}\n"
         body += f"Telefon: {customer.get('phone', '')}\n"
-        body += f"Betalning: {payment_display}\n\n"
-        body += "Produkter:\n"
+        body += f"Betalning: {payment_display}\n"
+        body += f"Leverans: {delivery_names.get(delivery_method, delivery_method or 'Hämtas i Alingsås Judoklubb')}\n"
+
+        if delivery_method == "postnord":
+            body += "\nLeveransadress:\n"
+            body += f"{customer.get('firstName', '')} {customer.get('lastName', '')}\n"
+            body += f"{customer.get('address', '')}\n"
+            body += f"{customer.get('postalCode', '')} {customer.get('city', '')}\n"
+
+        body += "\nProdukter:\n"
         
         # Look up existing sizes for each product
         product_sizes = {}

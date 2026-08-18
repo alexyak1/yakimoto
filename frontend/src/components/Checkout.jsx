@@ -15,6 +15,9 @@ export default function Checkout({ cart, setCart }) {
     email: '',
     phone: '',
     deliveryMethod: 'pickup', // Default to pickup
+    address: '',
+    postalCode: '',
+    city: '',
   });
 
   const [success, setSuccess] = useState(false);
@@ -227,6 +230,72 @@ export default function Checkout({ cart, setCart }) {
                </label>
              </div>
            </div>
+
+           {/* Delivery address (only for PostNord) */}
+           {formData.deliveryMethod === 'postnord' && (
+             <div className="space-y-4">
+               <h3 className="font-semibold">Leveransadress</h3>
+
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                   Gatuadress *
+                 </label>
+                 <input
+                   required
+                   placeholder="Gatuadress"
+                   name="address"
+                   value={formData.address}
+                   onChange={handleChange}
+                   autoComplete="street-address"
+                   className={`w-full border px-4 py-2 rounded focus:outline-none focus:ring-2 ${
+                     validationErrors.address
+                       ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                       : 'border-gray-300 focus:ring-blue-500'
+                   }`}
+                 />
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                     Postnummer *
+                   </label>
+                   <input
+                     required
+                     placeholder="Postnummer"
+                     name="postalCode"
+                     value={formData.postalCode}
+                     onChange={handleChange}
+                     autoComplete="postal-code"
+                     inputMode="numeric"
+                     className={`w-full border px-4 py-2 rounded focus:outline-none focus:ring-2 ${
+                       validationErrors.postalCode
+                         ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                         : 'border-gray-300 focus:ring-blue-500'
+                     }`}
+                   />
+                 </div>
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                     Ort *
+                   </label>
+                   <input
+                     required
+                     placeholder="Ort"
+                     name="city"
+                     value={formData.city}
+                     onChange={handleChange}
+                     autoComplete="address-level2"
+                     className={`w-full border px-4 py-2 rounded focus:outline-none focus:ring-2 ${
+                       validationErrors.city
+                         ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                         : 'border-gray-300 focus:ring-blue-500'
+                     }`}
+                   />
+                 </div>
+               </div>
+             </div>
+           )}
 
            {/* Order total display */}
            <div className="p-4 border rounded bg-gray-50">

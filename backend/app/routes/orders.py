@@ -79,7 +79,7 @@ def update_order_status(
     pickup_status = body.get("pickup_status")
 
     valid_payment = {"betald", "ej_betald"}
-    valid_pickup = {"hamtad", "ej_hamtad"}
+    valid_pickup = {"hamtad", "ej_hamtad", "skickad"}
 
     if payment_status and payment_status not in valid_payment:
         raise HTTPException(status_code=400, detail=f"Invalid payment_status. Must be one of: {valid_payment}")
@@ -159,6 +159,7 @@ def update_order(order_id: int, body: dict = Body(...), request: Request = None,
         cursor.execute(
             """UPDATE orders SET customer_name = ?, customer_email = ?, customer_phone = ?,
                payment_method = ?, payment_status = ?, pickup_status = ?,
+               delivery_method = ?, delivery_address = ?, delivery_postal_code = ?, delivery_city = ?,
                notes = ?, created_at = ?, items_total = ?, total = ?
                WHERE id = ?""",
             (
@@ -168,6 +169,10 @@ def update_order(order_id: int, body: dict = Body(...), request: Request = None,
                 body.get("payment_method", ""),
                 body.get("payment_status", "ej_betald"),
                 body.get("pickup_status", "ej_hamtad"),
+                body.get("delivery_method", "pickup"),
+                body.get("delivery_address", ""),
+                body.get("delivery_postal_code", ""),
+                body.get("delivery_city", ""),
                 body.get("notes", ""),
                 body.get("created_at") or datetime.utcnow().isoformat(),
                 items_total,
@@ -243,8 +248,9 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
         cursor.execute(
             """INSERT INTO orders (customer_name, customer_email, customer_phone,
                delivery_method, payment_method, items_total, delivery_cost, total,
-               payment_status, pickup_status, notes, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               payment_status, pickup_status, notes,
+               delivery_address, delivery_postal_code, delivery_city, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 customer_name,
                 body.get("customer_email", ""),
@@ -257,6 +263,9 @@ def create_order_manual(body: dict = Body(...), request: Request = None, _=Depen
                 payment_status,
                 pickup_status,
                 notes,
+                body.get("delivery_address", ""),
+                body.get("delivery_postal_code", ""),
+                body.get("delivery_city", ""),
                 created_at,
             )
         )

@@ -12,10 +12,24 @@ const PAYMENT_OPTIONS = [
 const PICKUP_OPTIONS = [
     { value: "ej_hamtad", label: "Ej hämtad" },
     { value: "hamtad", label: "Hämtad" },
+    { value: "skickad", label: "Skickad" },
 ];
 
-function StatusBadge({ paid, pickedUp }) {
-    if (paid && pickedUp) {
+// Pickup statuses that count as fulfilled (order is out of our hands)
+const FULFILLED_PICKUP = new Set(["hamtad", "skickad"]);
+
+function StatusBadge({ paid, pickupStatus }) {
+    const fulfilled = FULFILLED_PICKUP.has(pickupStatus);
+    if (paid && pickupStatus === "skickad") {
+        return (
+            <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0" title="Betald · Skickad">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+            </span>
+        );
+    }
+    if (paid && fulfilled) {
         return (
             <span className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,7 +38,7 @@ function StatusBadge({ paid, pickedUp }) {
             </span>
         );
     }
-    if (!paid && !pickedUp) {
+    if (!paid && !fulfilled) {
         return (
             <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,6 +87,10 @@ function OrderModal({ products, customers, onClose, onSave, order }) {
         notes: order?.notes || "",
         payment_status: order?.payment_status || "ej_betald",
         pickup_status: order?.pickup_status || "ej_hamtad",
+        delivery_method: order?.delivery_method || "pickup",
+        delivery_address: order?.delivery_address || "",
+        delivery_postal_code: order?.delivery_postal_code || "",
+        delivery_city: order?.delivery_city || "",
         created_at: order?.created_at ? order.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
         reduce_stock: true,
     });
@@ -228,6 +246,54 @@ function OrderModal({ products, customers, onClose, onSave, order }) {
                             <option value="kontant">Kontant</option>
                         </select>
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Leverans</label>
+                        <select
+                            value={form.delivery_method}
+                            onChange={(e) => setForm({ ...form, delivery_method: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="pickup">Hämtas i klubb</option>
+                            <option value="postnord">PostNord leverans</option>
+                        </select>
+                    </div>
+
+                    {form.delivery_method === "postnord" && (
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Gatuadress</label>
+                                <input
+                                    value={form.delivery_address}
+                                    onChange={(e) => setForm({ ...form, delivery_address: e.target.value })}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Gatuadress"
+                                    autoComplete="street-address"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Postnummer</label>
+                                    <input
+                                        value={form.delivery_postal_code}
+                                        onChange={(e) => setForm({ ...form, delivery_postal_code: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Postnummer"
+                                        inputMode="numeric"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+                                    <input
+                                        value={form.delivery_city}
+                                        onChange={(e) => setForm({ ...form, delivery_city: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Ort"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -501,7 +567,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
         if (filter === "betald" && o.payment_status !== "betald") return false;
         if (filter === "ej_hamtad" && o.pickup_status !== "ej_hamtad") return false;
         if (filter === "hamtad" && o.pickup_status !== "hamtad") return false;
-        if (filter === "klar" && !(o.payment_status === "betald" && o.pickup_status === "hamtad")) return false;
+        if (filter === "klar" && !(o.payment_status === "betald" && FULFILLED_PICKUP.has(o.pickup_status))) return false;
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             return (
@@ -523,7 +589,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
         alla: orders.length,
         ej_betald: orders.filter(o => o.payment_status === "ej_betald").length,
         ej_hamtad: orders.filter(o => o.pickup_status === "ej_hamtad").length,
-        klar: orders.filter(o => o.payment_status === "betald" && o.pickup_status === "hamtad").length,
+        klar: orders.filter(o => o.payment_status === "betald" && FULFILLED_PICKUP.has(o.pickup_status)).length,
     };
 
 
@@ -605,7 +671,7 @@ export default function AdminOrders({ products, token, searchQuery }) {
                         {paginated.map((order) => (
                             <div key={order.id} className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 py-4 first:pt-0 last:pb-0">
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <StatusBadge paid={order.payment_status === "betald"} pickedUp={order.pickup_status === "hamtad"} />
+                                    <StatusBadge paid={order.payment_status === "betald"} pickupStatus={order.pickup_status} />
                                     <div className="flex-1 min-w-0">
                                         <p className="font-medium text-gray-900">
                                             {order.customer_name}
@@ -621,6 +687,16 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                         </p>
                                         {order.notes && (
                                             <p className="text-sm text-gray-400 italic truncate">"{order.notes}"</p>
+                                        )}
+                                        {order.delivery_method === "postnord" && (
+                                            <p className="text-sm text-blue-600 flex items-start gap-1 mt-0.5">
+                                                <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                </svg>
+                                                <span className="truncate">
+                                                    {[order.delivery_address, [order.delivery_postal_code, order.delivery_city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "PostNord"}
+                                                </span>
+                                            </p>
                                         )}
                                     </div>
                                 </div>
@@ -644,7 +720,9 @@ export default function AdminOrders({ products, token, searchQuery }) {
                                         value={order.pickup_status}
                                         onChange={(e) => updateStatus(order.id, "pickup_status", e.target.value)}
                                         className={`border rounded-lg px-2 md:px-3 py-1.5 md:py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            order.pickup_status === "hamtad" ? "bg-green-50 border-green-300 text-green-800" : "bg-white border-gray-200"
+                                            order.pickup_status === "hamtad" ? "bg-green-50 border-green-300 text-green-800"
+                                                : order.pickup_status === "skickad" ? "bg-blue-50 border-blue-300 text-blue-800"
+                                                : "bg-white border-gray-200"
                                         }`}
                                     >
                                         {PICKUP_OPTIONS.map((s) => (

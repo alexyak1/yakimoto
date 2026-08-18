@@ -126,6 +126,9 @@ def setup_database():
             payment_status TEXT DEFAULT 'ej_betald',
             pickup_status TEXT DEFAULT 'ej_hamtad',
             notes TEXT,
+            delivery_address TEXT,
+            delivery_postal_code TEXT,
+            delivery_city TEXT,
             created_at TEXT
         )
     """)
@@ -202,6 +205,9 @@ def _run_migrations(conn):
         ("products", "cost", "INTEGER"),
         ("order_items", "cost", "INTEGER"),
         ("order_items", "location", "TEXT"),
+        ("orders", "delivery_address", "TEXT"),
+        ("orders", "delivery_postal_code", "TEXT"),
+        ("orders", "delivery_city", "TEXT"),
     ]
     
     for table, column, col_type in migrations:

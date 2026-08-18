@@ -34,8 +34,9 @@ def _save_order(customer, items, payment_method, delivery_method="pickup", deliv
         cursor.execute(
             """INSERT INTO orders (customer_name, customer_email, customer_phone,
                delivery_method, payment_method, items_total, delivery_cost, total,
-               payment_status, pickup_status, notes, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               payment_status, pickup_status, notes,
+               delivery_address, delivery_postal_code, delivery_city, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 customer_name,
                 customer.get("email", ""),
@@ -48,6 +49,9 @@ def _save_order(customer, items, payment_method, delivery_method="pickup", deliv
                 payment_status,
                 pickup_status,
                 "",
+                customer.get("address", ""),
+                customer.get("postalCode", ""),
+                customer.get("city", ""),
                 datetime.utcnow().isoformat(),
             )
         )

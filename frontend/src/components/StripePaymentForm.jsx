@@ -24,12 +24,16 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess, 
     console.log('Elements ready:', !!elements);
 
     // Validate required fields and highlight missing ones
+    const isDelivery = formData.deliveryMethod === 'postnord';
     const missingFields = [];
     if (!formData.firstName) missingFields.push('förnamn');
     if (!formData.lastName) missingFields.push('efternamn');
     if (!formData.email) missingFields.push('e-post');
     if (!formData.phone) missingFields.push('telefon');
-    
+    if (isDelivery && !formData.address) missingFields.push('gatuadress');
+    if (isDelivery && !formData.postalCode) missingFields.push('postnummer');
+    if (isDelivery && !formData.city) missingFields.push('ort');
+
     if (missingFields.length > 0) {
       // Highlight missing fields
       const errors = {};
@@ -37,7 +41,10 @@ export default function StripePaymentForm({ cart, setCart, formData, onSuccess, 
       if (!formData.lastName) errors.lastName = true;
       if (!formData.email) errors.email = true;
       if (!formData.phone) errors.phone = true;
-      
+      if (isDelivery && !formData.address) errors.address = true;
+      if (isDelivery && !formData.postalCode) errors.postalCode = true;
+      if (isDelivery && !formData.city) errors.city = true;
+
       onValidationError?.(errors);
       toast.error(`Vänligen fyll i alla obligatoriska fält: ${missingFields.join(', ')}.`);
       return;
